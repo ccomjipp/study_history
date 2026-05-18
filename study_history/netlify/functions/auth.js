@@ -11,8 +11,8 @@ exports.handler = async (event) => {
 
         // [주의] 실제 운영 시에는 DB나 환경변수와 대조해야 해.
         // 동글이가 배포할 때 이 부분을 수정하거나 환경변수로 대체하면 돼.
-        const MASTER_ID = "donggeul"; 
-        const MASTER_PW = "1234"; 
+        const MASTER_ID = process.env.USER_NAME; 
+        const MASTER_PW = process.env.USER_PASS; 
 
         if (userID === MASTER_ID && password === MASTER_PW) {
             return {

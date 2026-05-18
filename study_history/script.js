@@ -22,7 +22,7 @@ window.app = {
         }
 
         try {
-            alert("입력 OK");
+            //alert("입력 OK");
             const res = await fetch('/.netlify/functions/auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

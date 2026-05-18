@@ -1,0 +1,5 @@
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # 'unsafe-inline'과 'unsafe-eval'을 허용하여 라이브러리 실행 차단을 해제함
+    Content-Security-Policy = "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.google.com; object-src 'none';"

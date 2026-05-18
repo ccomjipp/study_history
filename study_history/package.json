@@ -1,0 +1,10 @@
+{
+  "name": "yieumi-history-study",
+  "version": "1.0.0",
+  "description": "이음이 역사 공부 보조 자료",
+  "main": "index.html",
+  "dependencies": {
+    "@google/generative-ai": "^0.2.0",
+    "@netlify/blobs": "^0.3.0"
+  }
+}

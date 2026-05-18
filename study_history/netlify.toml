@@ -1,5 +1,9 @@
+# Netlify에게 백엔드 함수 폴더 위치를 알려주는 지시어일세
+[build]
+  functions = "netlify/functions"
+  publish = "."
+
 [[headers]]
   for = "/*"
   [headers.values]
-    # 'unsafe-inline'과 'unsafe-eval'을 허용하여 라이브러리 실행 차단을 해제함
     Content-Security-Policy = "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.google.com; object-src 'none';"

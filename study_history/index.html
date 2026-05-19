@@ -6,7 +6,6 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- 로그인 화면 -->
     <div id="login-overlay">
         <div class="login-box">
             <h2>역사 공부 시스템</h2>
@@ -18,20 +17,18 @@
 
     <div id="app-container" style="display:none;">
         <div id="viewport">
-            <header id="region-header"></header> <!-- 상단 권역 눈금자 -->
+            <header id="region-header"></header>
             <div id="content-body">
-                <aside id="year-ruler"></aside> <!-- 좌측 연도 눈금자 -->
+                <aside id="year-ruler"></aside>
                 <main id="main-display">
-                    <div id="scroll-hint">💡 Shift + 마우스 휠로 좌우 이동이 가능합니다.</div>
                     <div id="timeline-grid">
-                        <svg id="link-layer"></svg> <!-- 연결선 레이어 -->
-                        <div id="event-container"></div> <!-- 이벤트 노드 -->
+                        <svg id="link-layer"></svg>
+                        <div id="event-container"></div>
                     </div>
                 </main>
             </div>
         </div>
 
-        <!-- 우측 입력 툴바 -->
         <aside id="toolbar">
             <div class="input-group">
                 <input type="number" id="in-startYear" placeholder="연도 (BC는 마이너스)">
@@ -43,10 +40,12 @@
             <div class="button-group">
                 <button id="btn-add" class="primary">추가 / 수정</button>
                 <button id="btn-search">검색</button>
-                <div id="search-results" class="hidden"></div> <!-- 검색 리스트 -->
+                <div id="search-results" class="hidden"></div>
                 <button id="btn-ai" class="ai-btn">AI 검색 (Gemini)</button>
                 <button id="btn-delete" class="danger">삭제</button>
             </div>
+
+            <div id="scroll-hint">💡 Shift + 마우스 휠로 좌우 이동이 가능합니다.</div>
         </aside>
     </div>
     <script src="script.js"></script>

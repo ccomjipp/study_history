@@ -512,9 +512,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-login-submit')?.addEventListener('click', app.login);
     document.getElementById('btn-add')?.addEventListener('click', app.addEvent);
     document.getElementById('btn-search')?.addEventListener('click', app.search);
-    document.getElementById('btn-ai')?.addEventListener('click', app.fetchAI);
+    //document.getElementById('btn-ai')?.addEventListener('click', app.fetchAI);
     document.getElementById('btn-delete')?.addEventListener('click', app.deleteEvent);
 
+    // 🎯 [여기에 아래 스크롤 동기화 코드를 이식해 주십시오]
+    const contentBody = document.getElementById('content-body');
+    const regionHeader = document.getElementById('region-header');
+
+    if (contentBody && regionHeader) {
+        contentBody.addEventListener('scroll', () => {
+            // 하단 본문의 가로 스크롤 값(scrollLeft)을 상단 헤더의 상대 좌표(left)에 실시간 음수 동기화!
+            regionHeader.style.position = 'relative';
+            regionHeader.style.left = `-${contentBody.scrollLeft}px`;
+        });
+    }
+    
     // 🎯 [버그 수정 1] 감지 범위를 축소된 격자가 아닌, 화면 전체 좌측 스크롤 영역(#content-body)으로 확장!
     document.getElementById('content-body')?.addEventListener('click', (e) => {
         // 무언가 선택되어 있고, 클릭한 대상이 카드(.event-node)가 아닐 때 확실하게 선택 해제

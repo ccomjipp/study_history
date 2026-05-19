@@ -350,6 +350,7 @@ window.app = {
         });
 
         document.getElementById('timeline-grid').style.height = `${currentTop + 60}px`;
+        document.getElementById('year-ruler').style.height = `${currentTop + 60}px`;
 
         uniqueYears.forEach(y => {
             const label = document.createElement('div');

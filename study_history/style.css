@@ -1,5 +1,5 @@
 /* ==========================================
-   [이음이 역사 공부] 통합 스타일 시트 (UI 고도화 버전)
+   [이음이 역사 공부] 통합 스타일 시트 (UI 고도화 완결판)
    ========================================== */
 
 /* 전체 기본 설정 초기화 */
@@ -40,16 +40,15 @@ body {
     position: relative;
 }
 
-/* 3. 고정식 상단 권역 헤더 (Sticky) */
+/* 3. 고정식 상단 권역 헤더 (내부 스크롤 동기화 테마) */
 #region-header {
     display: flex;
-    position: sticky;        /* 🎯 세로는 상단 고정, 가로는 본체와 함께 스크롤되는 핵심 속성 */
-    top: 0;
-    z-index: 1500;           /* 격자선(1)보다는 위, 마우스 호버 카드(2000)보다는 아래 배치 */
-    background-color: #2c3e50; /* 🎯 중요: 배경을 불투명하게 채워야 밑에서 올라오는 카드들이 가려집니다 */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* 헤더와 본문을 구분하는 얇은 입체 그림자 */
-    /* 🎯 [추가 명세] 헤더가 밀려 나갈 때 화면 밖으로 끊기지 않고 자연스럽게 확장되도록 보장 */
-    transition: none !important;
+    overflow: hidden;        /* 🎯 [버그 수정] 스크롤바는 숨기고 내부 요소들만 자바스크립트로 스크롤 제어 */
+    margin-left: 80px;       /* 🎯 [버그 수정] 좌측 연도 눈금자(80px) 너비만큼 정확히 밀어서 역사 카드들과 세로줄 일치 */
+    background-color: #2c3e50; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+    z-index: 1500;           
+    flex-shrink: 0;          /* 뷰포트 압축 시 높이가 줄어들지 않도록 락(Lock) */
 }
 
 .region-label {
@@ -59,11 +58,14 @@ body {
     border-right: 1px solid #34495e;
     font-weight: bold;
     font-size: 14px;
+    color: #ffffff;         /* 🎯 [신규 명세] 어두운 네이비 배경에서 글자가 아주 선명하게 보이도록 화이트 지정! */
 }
 
-/* 4. 고정식 좌측 연도 눈금자 (Sticky) */
+/* 4. 고정식 좌측 연도 눈금자 */
 #year-ruler { 
     width: 80px;
+    min-width: 80px;       /* 🎯 [버그 수정] 화면 해상도가 바뀌어도 80px 미만으로 절대로 축소되지 않도록 고정 넓이 보장 */
+    flex-shrink: 0;        /* 🎯 [버그 수정] Flex 레이아웃 내부에서 수축 압박 방어 */
     position: sticky;
     left: 0;
     background: #f4f6f7; 
@@ -79,26 +81,27 @@ body {
     font-size: 11px;
     font-weight: bold;
     color: #7f8c8d;
-    transform: translateY(-50%); /* 눈금 선과 텍스트 중앙 맞춤 */
+    transform: translateY(-50%); 
 }
 
-/* 5. 안내 툴팁 (우측 툴바 하단 정착 버전) */
+/* 5. 안내 툴팁 */
 #scroll-hint {
     display: block !important;
     position: relative !important;
     top: auto !important;
     left: auto !important;
     width: 100% !important;
-    background: #f4f6f7;               /* 연회색 박스 */
-    color: #7f8c8d;                    /* 차분한 폰트 색상 */
+    background: #f4f6f7;               
+    color: #7f8c8d;                    
     padding: 12px;
     border-radius: 6px;
     font-size: 12px;
     text-align: center;
-    border: 1px dashed #bdc3c7;        /* 대시 점선 처리 */
-    margin-top: auto;                  /* 툴바 내 요소가 적을 때 자동으로 최하단 밀착 */
+    border: 1px dashed #bdc3c7;        
+    margin-top: auto;                  
     box-shadow: none !important;
 }
+
 /* 6. 도화지 및 레이어 배치 */
 #main-display {
     position: relative;
@@ -107,8 +110,8 @@ body {
 
 #timeline-grid {
     position: relative;
-    width: 2400px; /* 12개 권역 * 200px */
-    height: 55000px; /* BC 3000년 ~ AD 2026년 대응 높이 */
+    width: 2400px; 
+    height: 55000px; 
 }
 
 #link-layer {
@@ -147,10 +150,7 @@ body {
 
 .event-node:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(0,0,0,0.15); /* 조금 더 선명하고 입체적인 그림자 배치 */
-    
-    /* 🎯 [핵심 버그 수정] 마우스가 올라간 카드는 '부모 자체'를 최상위 레이어로 격상시킵니다.
-       이렇게 하면 자식인 노란색 툴팁이 그 어떤 다른 카드나 점선보다 최상단에 100% 무조건 노출됩니다. */
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15); 
     z-index: 2000 !important;
 }
 
@@ -163,7 +163,7 @@ body {
     z-index: 120;
 }
 
-/* 8. [신규 추가] 오른쪽 입력 툴바 영역 (완전 수직 정렬 구조) */
+/* 8. 오른쪽 입력 툴바 영역 */
 #toolbar { 
     width: 320px;
     min-width: 320px;
@@ -211,7 +211,7 @@ body {
     resize: none;
 }
 
-/* 9. [신규 추가] 기능 버튼 레이아웃 */
+/* 9. 기능 버튼 레이아웃 */
 .button-group {
     display: flex;
     flex-direction: column;
@@ -234,36 +234,15 @@ body {
     transform: scale(0.98);
 }
 
-/* 버튼별 고유 색상 명세 (직관적인 테마 지정) */
-#btn-add {
-    background: #2ecc71; /* 에메랄드 그린 */
-}
-#btn-add:hover {
-    background: #27ae60;
-}
+#btn-add { background: #2ecc71; }
+#btn-add:hover { background: #27ae60; }
+#btn-search { background: #34495e; }
+#btn-search:hover { background: #2c3e50; }
+#btn-ai { background: #9b59b6; }
+#btn-ai:hover { background: #8e44ad; }
+#btn-delete { background: #e74c3c; }
+#btn-delete:hover { background: #c0392b; }
 
-#btn-search {
-    background: #34495e; /* 네이비 그레이 */
-}
-#btn-search:hover {
-    background: #2c3e50;
-}
-
-#btn-ai {
-    background: #9b59b6; /* 자수정 퍼플 */
-}
-#btn-ai:hover {
-    background: #8e44ad;
-}
-
-#btn-delete {
-    background: #e74c3c; /* 붉은 산호색 */
-}
-#btn-delete:hover {
-    background: #c0392b;
-}
-
-/* 10. 검색 결과 리스트 레이아웃 */
 #search-results {
     background: #34495e;
     color: white;
@@ -275,30 +254,19 @@ body {
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
 }
 
-.hidden {
-    display: none !important;
-}
+.hidden { display: none !important; }
 
-/* ==========================================
-   [신규 기능] 노란색 메모 툴팁 디자인
-   ========================================== */
-
-/* 1. 이벤트 카드의 기준점 확보 */
-.event-node {
-    position: absolute; /* 기존 속성 유지 */
-}
-
-/* 2. 숨겨져 있는 메모 상자 기본 정의 */
+/* 10. 노란색 메모 툴팁 디자인 */
 .memo-tooltip {
-    display: none;                  /* 평소에는 숨김 */
+    display: none;                  
     position: absolute;
-    top: 105%;                      /* 사건 카드 바로 밑에 정렬 */
+    top: 105%;                      
     left: 50%;
-    transform: translateX(-50%);    /* 가로축 중앙 정렬 */
-    width: 220px;                   /* 말풍선 너비 */
-    background-color: #fffde7;      /* 🎯 따뜻한 노란색 파스텔톤 배경 */
-    color: #2c3e50;                 /* 짙은 회색 글씨 */
-    border: 1px solid #fbc02d;      /* 진한 노란색 테두리 선 */
+    transform: translateX(-50%);    
+    width: 220px;                   
+    background-color: #fffde7;      
+    color: #2c3e50;                 
+    border: 1px solid #fbc02d;      
     padding: 10px 12px;
     border-radius: 6px;
     font-size: 12px;
@@ -306,11 +274,10 @@ body {
     text-align: left;
     line-height: 1.4;
     box-shadow: 0 4px 10px rgba(0,0,0,0.12);
-    z-index: 999;                   /* 다른 가이드라인 선보다 무조건 위에 투사 */
-    word-break: break-all;          /* 긴 글 자동 줄바꿈 */
+    z-index: 999;                   
+    word-break: break-all;          
 }
 
-/* 3. 🎯 [핵심 브라우저 제어] 마우스가 사건 위에 올라가면(:hover) 메모 상자를 노출 */
 .event-node:hover .memo-tooltip {
     display: block;
 }

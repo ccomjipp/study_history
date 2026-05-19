@@ -169,7 +169,7 @@ window.app = {
         }
     },
 
-    // 7. [인프라 우회 버전] 브라우저 직접 호출 방식의 Gemini AI 검색
+    // 7. 브라우저 직접 호출 방식의 Gemini AI 검색 (UI에선 버튼을 주석 처리했으나 기능은 유지)
     fetchAI: async () => {
         const nameEl = document.getElementById('in-eventName');
         if (!nameEl.value.trim()) {
@@ -180,71 +180,43 @@ window.app = {
         }
         nameEl.style.border = "";
 
-        // 🎯 [보안 조치] 브라우저 창고에서 API 키를 먼저 읽어옵니다.
         let localKey = localStorage.getItem("my_gemini_key");
-        
-        // 키가 저장되어 있지 않다면 사용자에게 직접 입력을 받습니다.
         if (!localKey) {
-            localKey = prompt("🔒 구글 AI Studio에서 발급받은 API 키를 입력해주세요.\n(입력하신 키는 선배님의 브라우저 내부에만 안전하게 저장되며, 깃허브에 절대 노출되지 않습니다.)");
+            localKey = prompt("🔒 구글 AI Studio에서 발급받은 API 키를 입력해주세요.");
             if (!localKey) return;
             localStorage.setItem("my_gemini_key", localKey.trim());
         }
 
-        alert("Gemini AI가 선배님의 홈 IP를 타고 역사의 바다를 탐색 중입니다...");
+        alert("Gemini AI가 탐색 중입니다...");
 
         try {
-            // 🎯 Netlify 프록시를 거치지 않고, 구글 공식 API 엔드포인트를 직접 타격합니다!
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${localKey}`;
-            
-            const promptText = `
-              역사 사건 "${nameEl.value.trim()}"에 대해 조사해서 아래의 JSON 형식으로만 답변해줘. 
-              설명이나 대화문은 절대 포함하지 말고 오직 JSON 데이터만 반환해야 해.
-              
-              {
-                "startYear": 사건의 시작 연도 (숫자만 입력, 기원전이면 마이너스 부호를 붙여줘. 예: 고조선 건국은 -2333, 문종 즉위는 1450),
-                "eventPlace": "사건이 일어난 구체적인 장소나 도시 이름 (예: 한양, 교토, 파리)",
-                "placeGroup": "한국", "일본", "중국", "동남아시아", "서남아시아", "중앙아시아", "중동", "유럽", "아프리카", "북미", "남미", "기타" 중 정확히 하나만 선택해서 입력,
-                "memo": "사건의 원인, 과정, 역사적 의미를 2~3문장으로 간결하게 요약한 문장"
-              }
-            `;
+            const promptText = `역사 사건 "${nameEl.value.trim()}"에 대해 조사해서 JSON 형식으로만 답변해줘.`;
 
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptText }] }]
-                })
+                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
             });
 
             if (!res.ok) {
-                // 혹시라도 키가 잘못되었을 경우 창고를 비워 재입력을 유도합니다.
-                if (res.status === 400 || res.status === 401) {
-                    localStorage.removeItem("my_gemini_key");
-                    throw new Error("API 키가 올바르지 않거나 만료되었습니다. 다시 시도해 주세요.");
-                }
-                throw new Error(`구글 서버 에러 (Status: ${res.status})`);
+                if (res.status === 400 || res.status === 401) localStorage.removeItem("my_gemini_key");
+                throw new Error(`구글 서버 에러 (${res.status})`);
             }
 
             const rawData = await res.json();
             let text = rawData.candidates[0].content.parts[0].text.trim();
-
-            // 마크다운 찌꺼기 정제 필터링
-            if (text.startsWith("```")) {
-                text = text.replace(/```json|```/g, "").trim();
-            }
+            if (text.startsWith("```")) text = text.replace(/```json|```/g, "").trim();
 
             const data = JSON.parse(text);
-
-            // 입력창에 값 투사
             document.getElementById('in-startYear').value = data.startYear || "";
             document.getElementById('in-eventPlace').value = data.eventPlace || "";
             document.getElementById('in-placeGroup').value = data.placeGroup || "";
             document.getElementById('in-memo').value = data.memo || "";
 
-            alert("AI 분석 완료! 내용을 확인하신 후 [추가 / 수정] 버튼을 누르면 정식 등록됩니다.");
+            alert("AI 분석 완료!");
         } catch (err) {
-            console.error("AI 검색 실패:", err);
-            alert(`AI 검색 중 오류가 발생했습니다:\n${err.message}`);
+            alert(`AI 검색 오류: ${err.message}`);
         }
     },
 
@@ -356,11 +328,12 @@ window.app = {
 
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
         activeRegions.forEach(r => {
-            header.innerHTML += `<div class="region-label" style="min-width:200px; text-align:center; line-height:40px; border-right:1px solid #555;">${r}</div>`;
+            header.innerHTML += `<div class="region-label">${r}</div>`;
         });
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
-        document.getElementById('region-header').style.width = `${gridWidth}px`;
+        
+        // 🎯 [구조 개혁] 강제로 전체 가로 길이를 주입하던 명령을 제거하여, 뷰포트 영역 내부 클리핑 작동 유도
 
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
         
@@ -423,12 +396,11 @@ window.app = {
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
 
-            // 🎯 [여기서부터 신규 이식] 기록된 메모가 존재한다면 노란색 툴팁 엘리먼트를 동적 주입합니다
             if (ev.memo && ev.memo.trim() !== "") {
                 const tooltip = document.createElement('div');
                 tooltip.className = 'memo-tooltip';
                 tooltip.innerText = ev.memo;
-                node.appendChild(tooltip); // 사건 카드 내부의 자식 요소로 장착
+                node.appendChild(tooltip); 
             }
             
             container.appendChild(node);
@@ -442,7 +414,7 @@ window.app = {
             const dashArray = isSelected ? "0" : "4,4";
             const opacity = isSelected ? "1" : "0.6";
 
-            const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            const hLine = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "line");
             hLine.setAttribute("x1", "0"); hLine.setAttribute("y1", getY(ev));
             hLine.setAttribute("x2", gridWidth.toString()); hLine.setAttribute("y2", getY(ev));
             hLine.setAttribute("stroke", strokeColor);
@@ -451,7 +423,7 @@ window.app = {
             hLine.setAttribute("opacity", opacity);
             svg.appendChild(hLine);
 
-            const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            const vLine = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "line");
             vLine.setAttribute("x1", getX(ev)); vLine.setAttribute("y1", "0");
             vLine.setAttribute("x2", getX(ev)); vLine.setAttribute("y2", getY(ev));
             vLine.setAttribute("stroke", strokeColor);
@@ -482,11 +454,14 @@ window.app = {
                 }
             }
         });
+        
+        // 🎯 [마지막 연산 버스트] 렌더링 직후 현재 하단 스크롤 위치를 상단 헤더에 즉각 동기화 주입
+        header.scrollLeft = contentBody.scrollLeft;
     },
     
     createSVGLine: (x1, y1, x2, y2, color, width, dash) => {
         const svg = document.getElementById('link-layer');
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        const line = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "line");
 
         line.setAttribute("x1", x1); line.setAttribute("y1", y1);
         line.setAttribute("x2", x2); line.setAttribute("y2", y2);
@@ -506,30 +481,26 @@ window.app = {
 };
 
 // ==========================================
-// 시스템 최초 부트 리스너 (픽스 버전)
+// 시스템 최초 부트 리스너
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-login-submit')?.addEventListener('click', app.login);
     document.getElementById('btn-add')?.addEventListener('click', app.addEvent);
     document.getElementById('btn-search')?.addEventListener('click', app.search);
-    //document.getElementById('btn-ai')?.addEventListener('click', app.fetchAI);
     document.getElementById('btn-delete')?.addEventListener('click', app.deleteEvent);
 
-    // 🎯 [여기에 아래 스크롤 동기화 코드를 이식해 주십시오]
     const contentBody = document.getElementById('content-body');
     const regionHeader = document.getElementById('region-header');
 
     if (contentBody && regionHeader) {
         contentBody.addEventListener('scroll', () => {
-            // 하단 본문의 가로 스크롤 값(scrollLeft)을 상단 헤더의 상대 좌표(left)에 실시간 음수 동기화!
-            regionHeader.style.position = 'relative';
-            regionHeader.style.left = `-${contentBody.scrollLeft}px`;
+            // 🎯 [아키텍처 혁신] 하단 본문의 좌우 스크롤바 이동거리(scrollLeft) 값을 
+            // 상단 헤더의 내부 스크롤바 위치에 1:1 직결 동기화! (오버플로우 네이티브 픽셀 매칭)
+            regionHeader.scrollLeft = contentBody.scrollLeft;
         });
     }
     
-    // 🎯 [버그 수정 1] 감지 범위를 축소된 격자가 아닌, 화면 전체 좌측 스크롤 영역(#content-body)으로 확장!
     document.getElementById('content-body')?.addEventListener('click', (e) => {
-        // 무언가 선택되어 있고, 클릭한 대상이 카드(.event-node)가 아닐 때 확실하게 선택 해제
         if (selectedID && !e.target.closest('.event-node')) {
             selectedID = null;         
             app.clearInputs();         
@@ -546,7 +517,6 @@ document.addEventListener('DOMContentLoaded', () => {
         app.loadData(); 
     }
 
-    // 🎯 [버그 수정 2] 매트릭스 행/열 및 초밀착 셀 내부 순번까지 추적하는 4방향 고도화 내비게이션 탑재
     document.addEventListener('keydown', (e) => {
         if (!selectedID) return;
         const current = events.find(ev => ev.eventID === selectedID);
@@ -560,7 +530,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const sameCell = events.filter(ev => ev.startYear === current.startYear && ev.placeGroup === current.placeGroup);
         const stackIdx = sameCell.findIndex(ev => ev.eventID === selectedID);
 
-        // 상 화살표 키: 동일 셀 내부 윗 카드로 이동 ➡️ 없으면 이전 연도 행의 동일 권역 추적
         if (e.key === 'ArrowUp') {
             e.preventDefault();
             if (stackIdx > 0) {
@@ -569,13 +538,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (let i = yIdx - 1; i >= 0; i--) {
                     const targets = events.filter(ev => ev.startYear === uniqueYears[i] && ev.placeGroup === current.placeGroup);
                     if (targets.length > 0) {
-                        app.selectEvent(targets[targets.length - 1].eventID); // 이전 행 스택의 맨 아래 카드로 안착
+                        app.selectEvent(targets[targets.length - 1].eventID);
                         break;
                     }
                 }
             }
         } 
-        // 하 화살표 키 (🎯 신규 구동): 동일 셀 내부 아랫 카드로 이동 ➡️ 없으면 다음 연도 행의 동일 권역 추적
         else if (e.key === 'ArrowDown') {
             e.preventDefault();
             if (stackIdx < sameCell.length - 1) {
@@ -584,13 +552,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (let i = yIdx + 1; i < uniqueYears.length; i++) {
                     const targets = events.filter(ev => ev.startYear === uniqueYears[i] && ev.placeGroup === current.placeGroup);
                     if (targets.length > 0) {
-                        app.selectEvent(targets[0].eventID); // 다음 행 스택의 맨 위 카드로 안착
+                        app.selectEvent(targets[0].eventID);
                         break;
                     }
                 }
             }
         } 
-        // 좌 화살표 키: 동일 연도 선상에서 왼쪽 권역 열 추적
         else if (e.key === 'ArrowLeft') {
             e.preventDefault();
             for (let i = rIdx - 1; i >= 0; i--) {
@@ -601,7 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } 
-        // 우 화살표 키 (🎯 신규 구동): 동일 연도 선상에서 오른쪽 권역 열 추적
         else if (e.key === 'ArrowRight') {
             e.preventDefault();
             for (let i = rIdx + 1; i < activeRegions.length; i++) {

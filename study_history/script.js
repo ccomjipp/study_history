@@ -1,9 +1,9 @@
 // ==========================================
-// [이음이 역사 공부] 프론트엔드 핵심 로직 (세션 유지 및 저장 검증 강화)
+// [이음이 역사 공부] 프론트엔드 핵심 로직 (동적 셀 중복 적층 고도화 버전)
 // ==========================================
 
 const ALL_REGIONS = ["한국", "일본", "중국", "동남아시아", "서남아시아", "중앙아시아", "중동", "유럽", "아프리카", "북미", "남미", "기타"];
-const ROW_HEIGHT = 80;  // 행당 고정 세로폭
+const CARD_GAP = 65;    // 🎯 [신규 명세] 겹치는 카드가 적층될 때의 수직 오프셋 간격 (65px)
 
 let events = [];        // 역사 사건 데이터 배열
 let selectedID = null;  // 선택된 이벤트 ID
@@ -31,8 +31,6 @@ window.app = {
 
             if (res.ok && result.success) {
                 currentUserID = userID;
-                
-                // 🎯 [신규] 브라우저 세션 창고에 로그인 아이디를 임시 저장 (F5 차단용)
                 sessionStorage.setItem("yieumi_user", userID); 
                 
                 document.getElementById('login-overlay').style.display = 'none';
@@ -75,7 +73,7 @@ window.app = {
         app.render();
     },
 
-    // 4. 백엔드 데이터 저장하기 (엄격한 트랜잭션 성공 검증 추가 🎯)
+    // 4. 백엔드 데이터 저장하기
     saveData: async () => {
         try {
             const res = await fetch(`/.netlify/functions/data?userID=${currentUserID}`, {
@@ -84,15 +82,11 @@ window.app = {
                 body: JSON.stringify(events)
             });
 
-            // 🎯 [버그 추적 장치] 서버가 저장에 실패(500 에러 등)하면 즉시 예외를 발생시킵니다.
-            if (!res.ok) {
-                throw new Error(`서버 응답 에러 (Status: ${res.status})`);
-            }
+            if (!res.ok) throw new Error(`서버 응답 에러 (Status: ${res.status})`);
             app.render();
         } catch (err) {
             console.error("데이터 저장 실패:", err);
-            // 자네에게 서버가 진짜 거부했음을 즉시 얼럿으로 경고합니다.
-            alert("⚠️ 경고: 데이터가 Netlify 서버에 저장되지 못했습니다!\nNetlify 대시보드의 Blobs 기능이나 환경변수 설정을 확인하세요.");
+            alert("⚠️ 경고: 데이터가 Netlify 서버에 저장되지 못했습니다!");
         }
     },
 
@@ -135,15 +129,16 @@ window.app = {
 
         if (!Array.isArray(events)) events = [];
 
-        const existing = events.find(e => e.eventName === eventName);
+        // 🎯 중복 검사 대상을 '이름'뿐만 아니라 '연도와 권역'까지 일치할 때로 완화하여 다중 등록 허용
+        const existing = events.find(e => e.eventName === eventName && e.startYear === startYear && e.placeGroup === placeGroup);
         if (existing) {
             app.selectEvent(existing.eventID);
             
-            const isSame = existing.startYear === startYear && existing.eventPlace === eventPlace && existing.placeGroup === placeGroup && existing.memo === memo;
+            const isSame = existing.eventPlace === eventPlace && existing.memo === memo;
             if (isSame) return;
 
-            if (confirm("기존 데이터와 다릅니다. 수정하시겠습니까?")) {
-                Object.assign(existing, { startYear, eventPlace, placeGroup, memo });
+            if (confirm("동일 시공간에 같은 이름의 사건이 있습니다. 수정하시겠습니까?")) {
+                Object.assign(existing, { eventPlace, memo });
                 app.updateAllLinks();
                 app.saveData();
                 alert("수정되었습니다.");
@@ -248,7 +243,7 @@ window.app = {
         });
     },
 
-    // 9. 이벤트 선택 및 화면 이동
+    // 9. 이벤트 선택 및 화면 이동 (적층 인덱스 보정 스크롤 연산)
     selectEvent: (id) => {
         selectedID = id;
         const ev = events.find(e => e.eventID === id);
@@ -264,12 +259,23 @@ window.app = {
         
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
         const regionIdx = activeRegions.indexOf(ev.placeGroup);
-        
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
-        const yearIdx = uniqueYears.indexOf(ev.startYear);
+
+        // 🎯 스크롤 시에도 렌더링 엔진과 동일한 알고리즘으로 동적 행 top 좌표 역산
+        const yearTops = {};
+        let currentTop = 20;
+        uniqueYears.forEach(y => {
+            yearTops[y] = currentTop;
+            const maxEventsInAnyRegion = Math.max(...activeRegions.map(r => events.filter(e => e.startYear === y && e.placeGroup === r).length), 1);
+            currentTop += (maxEventsInAnyRegion * CARD_GAP) + 20;
+        });
+
+        // 현재 선택된 이벤트가 해당 셀에서 몇 번째 적층 레이어인지 인덱스 추출
+        const sameCellEvents = events.filter(e => e.startYear === ev.startYear && e.placeGroup === ev.placeGroup);
+        const stackIdx = sameCellEvents.findIndex(e => e.eventID === ev.eventID);
         
         const x = regionIdx * 200 + 100;
-        const y = yearIdx * ROW_HEIGHT + 40; 
+        const y = yearTops[ev.startYear] + (stackIdx * CARD_GAP) + 20; 
         document.getElementById('content-body').scrollTo({ left: x - 400, top: y - 300, behavior: 'smooth' });
     },
 
@@ -289,7 +295,7 @@ window.app = {
         });
     },
 
-    // 11. 화면 렌더링
+    // 11. 화면 렌더링 및 다중 셀 동적 적층 매트릭스 구동
     render: () => {
         const container = document.getElementById('event-container');
         const svg = document.getElementById('link-layer');
@@ -307,6 +313,7 @@ window.app = {
             return;
         }
 
+        // A. 가로축(X) 압축 렌더링
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
         activeRegions.forEach(r => {
             header.innerHTML += `<div class="region-label" style="min-width:200px; text-align:center; line-height:40px; border-right:1px solid #555;">${r}</div>`;
@@ -314,11 +321,28 @@ window.app = {
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
 
+        // B. 세로축(Y) 가변 연산: 각 연도별로 가장 밀집된 셀의 이벤트 개수를 파악하여 동적 rowTop 매핑 🎯
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
-        const gridHeight = uniqueYears.length * ROW_HEIGHT + 100; 
-        document.getElementById('timeline-grid').style.height = `${gridHeight}px`;
+        
+        const yearTops = {};
+        let currentTop = 20;
 
-        uniqueYears.forEach((y, yearIdx) => {
+        uniqueYears.forEach(y => {
+            yearTops[y] = currentTop;
+            // 해당 연도의 전체 활성화 권역 중 '가장 카드가 많이 겹친 권역의 개수'를 도출 (최하 1개 보장)
+            const maxEventsInAnyRegion = Math.max(
+                ...activeRegions.map(r => events.filter(e => e.startYear === y && e.placeGroup === r).length),
+                1
+            );
+            // 🎯 다음 행의 시작점은 (해당 행의 밀집도 * 가단 카드 오프셋) + 여백(20px)으로 유동적 확장
+            currentTop += (maxEventsInAnyRegion * CARD_GAP) + 20;
+        });
+
+        // 도화지 최종 높이 반영
+        document.getElementById('timeline-grid').style.height = `${currentTop + 60}px`;
+
+        // C. 연도축 레이블 생성
+        uniqueYears.forEach(y => {
             const label = document.createElement('div');
             label.className = 'year-label';
             label.style.position = 'absolute';
@@ -327,7 +351,8 @@ window.app = {
             label.style.paddingRight = '12px';
             label.style.fontWeight = 'bold';
             
-            label.style.top = `${yearIdx * ROW_HEIGHT + 20}px`; 
+            // 동적 계산된 rowTop 값을 매핑하여 카드가 밀려도 수평 일치 유지
+            label.style.top = `${yearTops[y]}px`; 
             label.style.paddingTop = '10px'; 
             label.style.fontSize = '13px';
             label.style.transform = 'none'; 
@@ -344,21 +369,33 @@ window.app = {
             ruler.appendChild(label);
         });
 
+        // D. 이벤트 노드 배치 및 조준선 투사 (실시간 스택 오프셋 반영)
+        const cellCounters = {}; // 셀 내부 중복 개수를 카운트할 임시 스택 맵
+
         events.forEach(ev => {
             const regionIdx = activeRegions.indexOf(ev.placeGroup);
             const yearIdx = uniqueYears.indexOf(ev.startYear);
             if (regionIdx === -1 || yearIdx === -1) return; 
 
+            // 🎯 [동적 스택 제어] 동일 셀 발견 시 인덱스를 차례로 부여 (0, 1, 2...)
+            const cellKey = `${ev.startYear}-${ev.placeGroup}`;
+            if (!cellCounters[cellKey]) cellCounters[cellKey] = 0;
+            const stackIdx = cellCounters[cellKey];
+            cellCounters[cellKey]++;
+
             const node = document.createElement('div');
             node.className = `event-node ${selectedID === ev.eventID ? 'active' : ''}`;
             node.style.left = `${regionIdx * 200 + 25}px`;
-            node.style.top = `${yearIdx * ROW_HEIGHT + 20}px`; 
+            
+            // 🎯 [수직 배치 결정] 해당 행의 기본 시작점(yearTops)에 본인의 스택 순번만큼 65px씩 더해 아래로 나열
+            node.style.top = `${yearTops[ev.startYear] + (stackIdx * CARD_GAP)}px`;
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
             container.appendChild(node);
 
+            // 가이드라인 조준점 산출 공식 동기화
             const getX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
-            const getY = (e) => uniqueYears.indexOf(e.startYear) * ROW_HEIGHT + 37;
+            const getY = (e) => yearTops[ev.startYear] + (stackIdx * CARD_GAP) + 17; // 개별 적층 노드의 정중앙선 산출
             
             const isSelected = selectedID === ev.eventID;
             const strokeColor = isSelected ? "#3498db" : "#e0e0e0";
@@ -366,6 +403,7 @@ window.app = {
             const dashArray = isSelected ? "0" : "4,4";
             const opacity = isSelected ? "1" : "0.6";
 
+            // 가로축 조준선
             const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             hLine.setAttribute("x1", "0"); hLine.setAttribute("y1", getY(ev));
             hLine.setAttribute("x2", gridWidth.toString()); hLine.setAttribute("y2", getY(ev));
@@ -375,6 +413,7 @@ window.app = {
             hLine.setAttribute("opacity", opacity);
             svg.appendChild(hLine);
 
+            // 세로축 조준선
             const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             vLine.setAttribute("x1", getX(ev)); vLine.setAttribute("y1", "0");
             vLine.setAttribute("x2", getX(ev)); vLine.setAttribute("y2", getY(ev));
@@ -384,17 +423,27 @@ window.app = {
             vLine.setAttribute("opacity", opacity);
             svg.appendChild(vLine);
 
+            // 인과관계 트랙 링크 매핑
             if (isSelected) {
+                // 링크 그리기 유틸리티 좌표 매퍼
+                const getLinkX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
+                const getLinkY = (e) => {
+                    const sYears = [...new Set(events.map(evnt => evnt.startYear))].sort((a, b) => a - b);
+                    const sEvents = events.filter(evnt => evnt.startYear === e.startYear && evnt.placeGroup === e.placeGroup);
+                    const sIdx = sEvents.findIndex(evnt => evnt.eventID === e.eventID);
+                    return yearTops[e.startYear] + (sIdx * CARD_GAP) + 17;
+                };
+
                 if (ev.upLink && ev.upLink !== ev.eventID) {
                     const prev = events.find(e => e.eventID === ev.upLink);
                     if (prev && activeRegions.includes(prev.placeGroup)) {
-                        app.createSVGLine(getX(ev), getY(ev), getX(prev), getY(prev), "#2980b9", "3", "0");
+                        app.createSVGLine(getLinkX(ev), getLinkY(ev), getLinkX(prev), getLinkY(prev), "#2980b9", "3", "0");
                     }
                 }
                 if (ev.leftLink && ev.leftLink !== ev.eventID) {
                     const left = events.find(e => e.eventID === ev.leftLink);
                     if (left && activeRegions.includes(left.placeGroup)) {
-                        app.createSVGLine(getX(ev), getY(ev), getX(left), getY(left), "#e74c3c", "3", "5,5");
+                        app.createSVGLine(getLinkX(ev), getLinkY(ev), getLinkX(left), getLinkY(left), "#e74c3c", "3", "5,5");
                     }
                 }
             }
@@ -423,7 +472,7 @@ window.app = {
 };
 
 // ==========================================
-// 🎯 [신규] 자동 로그인 체크 및 최초 바인딩
+// 시스템 최초 부트 리스너
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-login-submit')?.addEventListener('click', app.login);
@@ -432,14 +481,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-ai')?.addEventListener('click', app.fetchAI);
     document.getElementById('btn-delete')?.addEventListener('click', app.deleteEvent);
 
-    // 🎯 [자동 로그인] 새로고침(F5) 시 세션 창고를 확인하여 즉시 메인 화면 복귀
     const savedUser = sessionStorage.getItem("yieumi_user");
     if (savedUser) {
         currentUserID = savedUser;
         document.getElementById('login-overlay').style.display = 'none';
         document.getElementById('app-container').style.display = 'flex';
         app.init();
-        app.loadData(); // 서버에서 실시간 데이터 강제 싱크
+        app.loadData(); 
     }
 
     document.addEventListener('keydown', (e) => {

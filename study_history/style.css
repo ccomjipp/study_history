@@ -275,3 +275,39 @@ body {
 .hidden {
     display: none !important;
 }
+
+/* ==========================================
+   [신규 기능] 노란색 메모 툴팁 디자인
+   ========================================== */
+
+/* 1. 이벤트 카드의 기준점 확보 */
+.event-node {
+    position: absolute; /* 기존 속성 유지 */
+}
+
+/* 2. 숨겨져 있는 메모 상자 기본 정의 */
+.memo-tooltip {
+    display: none;                  /* 평소에는 숨김 */
+    position: absolute;
+    top: 105%;                      /* 사건 카드 바로 밑에 정렬 */
+    left: 50%;
+    transform: translateX(-50%);    /* 가로축 중앙 정렬 */
+    width: 220px;                   /* 말풍선 너비 */
+    background-color: #fffde7;      /* 🎯 따뜻한 노란색 파스텔톤 배경 */
+    color: #2c3e50;                 /* 짙은 회색 글씨 */
+    border: 1px solid #fbc02d;      /* 진한 노란색 테두리 선 */
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: normal;
+    text-align: left;
+    line-height: 1.4;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+    z-index: 999;                   /* 다른 가이드라인 선보다 무조건 위에 투사 */
+    word-break: break-all;          /* 긴 글 자동 줄바꿈 */
+}
+
+/* 3. 🎯 [핵심 브라우저 제어] 마우스가 사건 위에 올라가면(:hover) 메모 상자를 노출 */
+.event-node:hover .memo-tooltip {
+    display: block;
+}

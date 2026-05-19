@@ -324,6 +324,7 @@ window.app = {
 
         // 🎯 [신규 기능] 렌더링 시작 시 우측 패널의 가나다 목록 창도 깨끗이 비웁니다.
         const totalListDiv = document.getElementById('total-event-list');
+        const savedScrollTop = totalListDiv ? totalListDiv.scrollTop : 0;
         if (totalListDiv) totalListDiv.innerHTML = '';
 
         if (!Array.isArray(events) || events.length === 0) {
@@ -495,6 +496,9 @@ window.app = {
                 };
                 totalListDiv.appendChild(item);
             });
+            // 🎯 [핵심 수정] 새 HTML 조립이 완벽히 끝난 직후, 백업해 두었던 스크롤 좌표로 강제 복구시킵니다!
+            // 이 덕분에 사용자가 보던 리스트의 화면 위치가 미동도 하지 않고 제자리에 고정됩니다.
+            totalListDiv.scrollTop = savedScrollTop;
         }
     },
     

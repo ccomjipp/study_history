@@ -337,3 +337,9 @@ body {
     background: #ebf5fb;
     border-left: 4px solid #3498db; /* 왼쪽 메인 카드와 매칭되는 파란색 띠 보장 */
 }
+
+/* 🎯 [신규 수정] 검색 결과창이 열려있을 때(not(.hidden))는 
+   바로 뒤에 오는 전체 목록창의 최대 높이를 240px -> 120px로 반토막 내어 가려짐을 원천 차단합니다. */
+#search-results:not(.hidden) ~ .input-group #total-event-list {
+    max-height: 120px;
+}

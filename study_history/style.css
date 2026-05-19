@@ -45,7 +45,7 @@ body {
     display: flex;
     overflow: hidden;        /* 🎯 [버그 수정] 스크롤바는 숨기고 내부 요소들만 자바스크립트로 스크롤 제어 */
     margin-left: 80px;       /* 🎯 [버그 수정] 좌측 연도 눈금자(80px) 너비만큼 정확히 밀어서 역사 카드들과 세로줄 일치 */
-    background-color: #2c3e50; 
+    background-color: #142c45; 
     box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
     z-index: 1500;           
     flex-shrink: 0;          /* 뷰포트 압축 시 높이가 줄어들지 않도록 락(Lock) */
@@ -167,7 +167,7 @@ body {
 #toolbar { 
     width: 320px;
     min-width: 320px;
-    background: #ffffff;
+    background: #142c45;
     border-left: 1px solid #d5dbdb;
     padding: 25px 20px;
     display: flex;

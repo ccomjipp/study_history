@@ -1,9 +1,9 @@
 // ==========================================
-// [이음이 역사 공부] 프론트엔드 핵심 로직 (초밀착 셀 적층 버전)
+// [이음이 역사 공부] 프론트엔드 핵심 로직 (바탕화면 선택 해제 지원 버전)
 // ==========================================
 
 const ALL_REGIONS = ["한국", "일본", "중국", "동남아시아", "서남아시아", "중앙아시아", "중동", "유럽", "아프리카", "북미", "남미", "기타"];
-const CARD_GAP = 38;    // 🎯 [정밀 보정] 카드가 빈틈없이 찰떡처럼 붙도록 간격을 65px에서 38px로 압축!
+const CARD_GAP = 38;    // 카드가 빈틈없이 붙도록 최적화된 마진 간격
 
 let events = [];        // 역사 사건 데이터 배열
 let selectedID = null;  // 선택된 이벤트 ID
@@ -242,7 +242,7 @@ window.app = {
         });
     },
 
-    // 9. 이벤트 선택 및 화면 이동 (압축 스택 좌표 동기화)
+    // 9. 이벤트 선택 및 화면 이동
     selectEvent: (id) => {
         selectedID = id;
         const ev = events.find(e => e.eventID === id);
@@ -292,7 +292,7 @@ window.app = {
         });
     },
 
-    // 11. 화면 렌더링 및 초밀착 매트릭스 레이아웃 가동
+    // 11. 화면 렌더링
     render: () => {
         const container = document.getElementById('event-container');
         const svg = document.getElementById('link-layer');
@@ -310,7 +310,6 @@ window.app = {
             return;
         }
 
-        // A. 가로축(X) 압축 렌더링
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
         activeRegions.forEach(r => {
             header.innerHTML += `<div class="region-label" style="min-width:200px; text-align:center; line-height:40px; border-right:1px solid #555;">${r}</div>`;
@@ -318,7 +317,6 @@ window.app = {
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
 
-        // B. 세로축(Y) 가변 연산 (CARD_GAP이 줄어듦에 따라 가변 행 높이도 대폭 콤팩트화 🎯)
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
         
         const yearTops = {};
@@ -335,7 +333,6 @@ window.app = {
 
         document.getElementById('timeline-grid').style.height = `${currentTop + 60}px`;
 
-        // C. 연도축 레이블 생성
         uniqueYears.forEach(y => {
             const label = document.createElement('div');
             label.className = 'year-label';
@@ -362,7 +359,6 @@ window.app = {
             ruler.appendChild(label);
         });
 
-        // D. 이벤트 노드 배치 및 조준선 투사 (초밀착 오프셋 반영)
         const cellCounters = {}; 
 
         events.forEach(ev => {
@@ -378,14 +374,11 @@ window.app = {
             const node = document.createElement('div');
             node.className = `event-node ${selectedID === ev.eventID ? 'active' : ''}`;
             node.style.left = `${regionIdx * 200 + 25}px`;
-            
-            // 🎯 [초밀착 배치] 38px 오프셋을 적용하여 위아래 카드의 테두리가 닿도록 배치합니다.
             node.style.top = `${yearTops[ev.startYear] + (stackIdx * CARD_GAP)}px`;
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
             container.appendChild(node);
 
-            // 🎯 [정밀 중심선] 밀착된 각 카드의 텍스트 중심선을 유동적 관통하도록 좌표 정밀 보정 (+18px)
             const getX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
             const getY = (e) => yearTops[ev.startYear] + (stackIdx * CARD_GAP) + 18; 
             
@@ -395,7 +388,6 @@ window.app = {
             const dashArray = isSelected ? "0" : "4,4";
             const opacity = isSelected ? "1" : "0.6";
 
-            // 가로축 조준선
             const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             hLine.setAttribute("x1", "0"); hLine.setAttribute("y1", getY(ev));
             hLine.setAttribute("x2", gridWidth.toString()); hLine.setAttribute("y2", getY(ev));
@@ -405,7 +397,6 @@ window.app = {
             hLine.setAttribute("opacity", opacity);
             svg.appendChild(hLine);
 
-            // 세로축 조준선
             const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             vLine.setAttribute("x1", getX(ev)); vLine.setAttribute("y1", "0");
             vLine.setAttribute("x2", getX(ev)); vLine.setAttribute("y2", getY(ev));
@@ -415,7 +406,6 @@ window.app = {
             vLine.setAttribute("opacity", opacity);
             svg.appendChild(vLine);
 
-            // 인과관계 트랙 링크 매핑
             if (isSelected) {
                 const getLinkX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
                 const getLinkY = (e) => {
@@ -470,6 +460,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-search')?.addEventListener('click', app.search);
     document.getElementById('btn-ai')?.addEventListener('click', app.fetchAI);
     document.getElementById('btn-delete')?.addEventListener('click', app.deleteEvent);
+
+    // 🎯 [신규 기능 추가] 타임라인 빈 바탕화면 클릭 시 선택 안전 해제
+    document.getElementById('timeline-grid')?.addEventListener('click', (e) => {
+        // 현재 무언가 선택되어 있는 상태이고, 클릭한 대상이 카드(.event-node)나 그 내부 글자가 아닐 때만 발동
+        if (selectedID && !e.target.closest('.event-node')) {
+            selectedID = null;         // 인덱스 비우기
+            app.clearInputs();         // 우측 입력 필드도 초기화
+            app.render();              // 조준선 및 하이라이트 청소
+        }
+    });
 
     const savedUser = sessionStorage.getItem("yieumi_user");
     if (savedUser) {

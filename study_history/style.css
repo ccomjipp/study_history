@@ -302,3 +302,38 @@ body {
 .event-node:hover .memo-tooltip {
     display: block;
 }
+
+/* ==========================================
+   [신규 기능] 가나다 순 전체 사건 목록 창 스타일
+   ========================================== */
+#total-event-list {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    max-height: 240px;          /* 💥 입력창 비율을 해치지 않는 최적의 컴팩트 세로 높이 */
+    overflow-y: auto;           /* 데이터가 많아지면 내부에서 독립 스크롤바 가동 */
+    display: flex;
+    flex-direction: column;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.total-event-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eeeeee;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.total-event-item:last-child {
+    border-bottom: none;
+}
+
+.total-event-item:hover {
+    background: #f4f6f7;        /* 마우스 오버 시 연회색 반응 */
+}
+
+/* 🎯 현재 활성화(선택)된 역사 사건 아이템 하이라이트 스타일 */
+.total-event-item.active {
+    background: #ebf5fb;
+    border-left: 4px solid #3498db; /* 왼쪽 메인 카드와 매칭되는 파란색 띠 보장 */
+}

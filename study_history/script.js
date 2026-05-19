@@ -310,7 +310,7 @@ window.app = {
 
     // 📄 script.js 내부의 render 함수 통째로 교체 명세
 
-    // 11. 화면 렌더링
+    // 11. 화면 렌더링 (가나다순 전체 목록 오버레이 통합판)
     render: () => {
         const container = document.getElementById('event-container');
         const svg = document.getElementById('link-layer');
@@ -322,9 +322,16 @@ window.app = {
         ruler.innerHTML = '';
         header.innerHTML = ''; 
 
+        // 🎯 [신규 기능] 렌더링 시작 시 우측 패널의 가나다 목록 창도 깨끗이 비웁니다.
+        const totalListDiv = document.getElementById('total-event-list');
+        if (totalListDiv) totalListDiv.innerHTML = '';
+
         if (!Array.isArray(events) || events.length === 0) {
             document.getElementById('timeline-grid').style.width = "100%";
             document.getElementById('timeline-grid').style.height = "100%";
+            if (totalListDiv) {
+                totalListDiv.innerHTML = '<div style="padding:15px; color:#999; text-align:center; font-size:12px;">등록된 사건이 없습니다.</div>';
+            }
             return;
         }
 
@@ -456,12 +463,41 @@ window.app = {
             }
         });
         
-        // 🎯 [버그 수정 완료] 함수 스코프 외부에 있던 contentBody를 안전하게 직접 참조해 바인딩합니다.
         const contentBody = document.getElementById('content-body');
         if (header && contentBody) {
             header.scrollLeft = contentBody.scrollLeft;
         }
+
+        // 🎯 [여기서부터 신규 이식] 가나다 순 전체 사건 인덱스 리스트 실시간 동적 매핑
+        if (totalListDiv) {
+            // 국문 가나다 규격 정렬 사양 복사 배열 추출
+            const sortedEvents = [...events].sort((a, b) => a.eventName.localeCompare(b.eventName, 'ko'));
+            
+            sortedEvents.forEach(ev => {
+                const item = document.createElement('div');
+                item.className = `total-event-item ${selectedID === ev.eventID ? 'active' : ''}`;
+                
+                const yearStr = ev.startYear < 0 ? `BC ${Math.abs(ev.startYear)}` : `AD ${ev.startYear}`;
+                
+                // 사건명, 연도, 발생장소를 가독성 높은 격자 배치 서식으로 바인딩
+                item.innerHTML = `
+                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 2px; text-align: left;">${ev.eventName}</div>
+                    <div style="display: flex; justify-content: space-between; color: #7f8c8d; font-size: 11px;">
+                        <span>📅 ${yearStr}</span>
+                        <span>📍 ${ev.eventPlace}</span>
+                    </div>
+                `;
+                
+                // 아이템 클릭 시 바탕화면 해제 이벤트를 무시하고, 부드러운 초점 이동 엔진 가동!
+                item.onclick = (e) => {
+                    e.stopPropagation(); 
+                    app.selectEvent(ev.eventID);
+                };
+                totalListDiv.appendChild(item);
+            });
+        }
     },
+    
     
     createSVGLine: (x1, y1, x2, y2, color, width, dash) => {
         const svg = document.getElementById('link-layer');

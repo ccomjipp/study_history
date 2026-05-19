@@ -10,8 +10,11 @@ exports.handler = async (event) => {
     }
 
     // 'history-data'라는 이름의 저장소를 불러와 (마치 하드디스크의 폴더 같은 개념이야)
-    const store = getStore("history-data");
-
+    const store = getStore({
+        name: `history-data-${userID}`,
+        siteID: process.env.MY_SITE_ID,       // 우리가 등록한 환경변수 주입!
+        token: process.env.MY_NETLIFY_TOKEN   // 우리가 등록한 인증 토큰 주입!
+    });
     // 1. GET: 데이터 불러오기 (Read)
     if (httpMethod === "GET") {
         const rawData = await store.get(userID); // userID를 키로 사용해 JSON 문자열을 가져옴

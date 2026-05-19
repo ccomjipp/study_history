@@ -1,9 +1,9 @@
 // ==========================================
-// [이음이 역사 공부] 프론트엔드 핵심 로직 (동적 셀 중복 적층 고도화 버전)
+// [이음이 역사 공부] 프론트엔드 핵심 로직 (초밀착 셀 적층 버전)
 // ==========================================
 
 const ALL_REGIONS = ["한국", "일본", "중국", "동남아시아", "서남아시아", "중앙아시아", "중동", "유럽", "아프리카", "북미", "남미", "기타"];
-const CARD_GAP = 65;    // 🎯 [신규 명세] 겹치는 카드가 적층될 때의 수직 오프셋 간격 (65px)
+const CARD_GAP = 38;    // 🎯 [정밀 보정] 카드가 빈틈없이 찰떡처럼 붙도록 간격을 65px에서 38px로 압축!
 
 let events = [];        // 역사 사건 데이터 배열
 let selectedID = null;  // 선택된 이벤트 ID
@@ -129,7 +129,6 @@ window.app = {
 
         if (!Array.isArray(events)) events = [];
 
-        // 🎯 중복 검사 대상을 '이름'뿐만 아니라 '연도와 권역'까지 일치할 때로 완화하여 다중 등록 허용
         const existing = events.find(e => e.eventName === eventName && e.startYear === startYear && e.placeGroup === placeGroup);
         if (existing) {
             app.selectEvent(existing.eventID);
@@ -243,7 +242,7 @@ window.app = {
         });
     },
 
-    // 9. 이벤트 선택 및 화면 이동 (적층 인덱스 보정 스크롤 연산)
+    // 9. 이벤트 선택 및 화면 이동 (압축 스택 좌표 동기화)
     selectEvent: (id) => {
         selectedID = id;
         const ev = events.find(e => e.eventID === id);
@@ -261,7 +260,6 @@ window.app = {
         const regionIdx = activeRegions.indexOf(ev.placeGroup);
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
 
-        // 🎯 스크롤 시에도 렌더링 엔진과 동일한 알고리즘으로 동적 행 top 좌표 역산
         const yearTops = {};
         let currentTop = 20;
         uniqueYears.forEach(y => {
@@ -270,7 +268,6 @@ window.app = {
             currentTop += (maxEventsInAnyRegion * CARD_GAP) + 20;
         });
 
-        // 현재 선택된 이벤트가 해당 셀에서 몇 번째 적층 레이어인지 인덱스 추출
         const sameCellEvents = events.filter(e => e.startYear === ev.startYear && e.placeGroup === ev.placeGroup);
         const stackIdx = sameCellEvents.findIndex(e => e.eventID === ev.eventID);
         
@@ -295,7 +292,7 @@ window.app = {
         });
     },
 
-    // 11. 화면 렌더링 및 다중 셀 동적 적층 매트릭스 구동
+    // 11. 화면 렌더링 및 초밀착 매트릭스 레이아웃 가동
     render: () => {
         const container = document.getElementById('event-container');
         const svg = document.getElementById('link-layer');
@@ -321,7 +318,7 @@ window.app = {
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
 
-        // B. 세로축(Y) 가변 연산: 각 연도별로 가장 밀집된 셀의 이벤트 개수를 파악하여 동적 rowTop 매핑 🎯
+        // B. 세로축(Y) 가변 연산 (CARD_GAP이 줄어듦에 따라 가변 행 높이도 대폭 콤팩트화 🎯)
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
         
         const yearTops = {};
@@ -329,16 +326,13 @@ window.app = {
 
         uniqueYears.forEach(y => {
             yearTops[y] = currentTop;
-            // 해당 연도의 전체 활성화 권역 중 '가장 카드가 많이 겹친 권역의 개수'를 도출 (최하 1개 보장)
             const maxEventsInAnyRegion = Math.max(
                 ...activeRegions.map(r => events.filter(e => e.startYear === y && e.placeGroup === r).length),
                 1
             );
-            // 🎯 다음 행의 시작점은 (해당 행의 밀집도 * 가단 카드 오프셋) + 여백(20px)으로 유동적 확장
             currentTop += (maxEventsInAnyRegion * CARD_GAP) + 20;
         });
 
-        // 도화지 최종 높이 반영
         document.getElementById('timeline-grid').style.height = `${currentTop + 60}px`;
 
         // C. 연도축 레이블 생성
@@ -351,7 +345,6 @@ window.app = {
             label.style.paddingRight = '12px';
             label.style.fontWeight = 'bold';
             
-            // 동적 계산된 rowTop 값을 매핑하여 카드가 밀려도 수평 일치 유지
             label.style.top = `${yearTops[y]}px`; 
             label.style.paddingTop = '10px'; 
             label.style.fontSize = '13px';
@@ -369,15 +362,14 @@ window.app = {
             ruler.appendChild(label);
         });
 
-        // D. 이벤트 노드 배치 및 조준선 투사 (실시간 스택 오프셋 반영)
-        const cellCounters = {}; // 셀 내부 중복 개수를 카운트할 임시 스택 맵
+        // D. 이벤트 노드 배치 및 조준선 투사 (초밀착 오프셋 반영)
+        const cellCounters = {}; 
 
         events.forEach(ev => {
             const regionIdx = activeRegions.indexOf(ev.placeGroup);
             const yearIdx = uniqueYears.indexOf(ev.startYear);
             if (regionIdx === -1 || yearIdx === -1) return; 
 
-            // 🎯 [동적 스택 제어] 동일 셀 발견 시 인덱스를 차례로 부여 (0, 1, 2...)
             const cellKey = `${ev.startYear}-${ev.placeGroup}`;
             if (!cellCounters[cellKey]) cellCounters[cellKey] = 0;
             const stackIdx = cellCounters[cellKey];
@@ -387,15 +379,15 @@ window.app = {
             node.className = `event-node ${selectedID === ev.eventID ? 'active' : ''}`;
             node.style.left = `${regionIdx * 200 + 25}px`;
             
-            // 🎯 [수직 배치 결정] 해당 행의 기본 시작점(yearTops)에 본인의 스택 순번만큼 65px씩 더해 아래로 나열
+            // 🎯 [초밀착 배치] 38px 오프셋을 적용하여 위아래 카드의 테두리가 닿도록 배치합니다.
             node.style.top = `${yearTops[ev.startYear] + (stackIdx * CARD_GAP)}px`;
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
             container.appendChild(node);
 
-            // 가이드라인 조준점 산출 공식 동기화
+            // 🎯 [정밀 중심선] 밀착된 각 카드의 텍스트 중심선을 유동적 관통하도록 좌표 정밀 보정 (+18px)
             const getX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
-            const getY = (e) => yearTops[ev.startYear] + (stackIdx * CARD_GAP) + 17; // 개별 적층 노드의 정중앙선 산출
+            const getY = (e) => yearTops[ev.startYear] + (stackIdx * CARD_GAP) + 18; 
             
             const isSelected = selectedID === ev.eventID;
             const strokeColor = isSelected ? "#3498db" : "#e0e0e0";
@@ -425,13 +417,11 @@ window.app = {
 
             // 인과관계 트랙 링크 매핑
             if (isSelected) {
-                // 링크 그리기 유틸리티 좌표 매퍼
                 const getLinkX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
                 const getLinkY = (e) => {
-                    const sYears = [...new Set(events.map(evnt => evnt.startYear))].sort((a, b) => a - b);
                     const sEvents = events.filter(evnt => evnt.startYear === e.startYear && evnt.placeGroup === e.placeGroup);
                     const sIdx = sEvents.findIndex(evnt => evnt.eventID === e.eventID);
-                    return yearTops[e.startYear] + (sIdx * CARD_GAP) + 17;
+                    return yearTops[e.startYear] + (sIdx * CARD_GAP) + 18;
                 };
 
                 if (ev.upLink && ev.upLink !== ev.eventID) {

@@ -281,6 +281,7 @@ window.app = {
     },
 
     // 11. 화면 렌더링 및 순서 기반 압축 인터페이스 고도화
+    // 11. 화면 렌더링 및 순서 기반 압축 인터페이스 고도화 (정밀 픽셀 정렬 버전)
     render: () => {
         const container = document.getElementById('event-container');
         const svg = document.getElementById('link-layer');
@@ -298,7 +299,7 @@ window.app = {
             return;
         }
 
-        // 🎯 1. 가로축(X): 데이터가 존재하는 권역만 추출 및 렌더링
+        // 1. 가로축(X): 데이터가 존재하는 권역만 추출 및 렌더링
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
         activeRegions.forEach(r => {
             header.innerHTML += `<div class="region-label" style="min-width:200px; text-align:center; line-height:40px; border-right:1px solid #555;">${r}</div>`;
@@ -306,12 +307,12 @@ window.app = {
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
 
-        // 🎯 2. 세로축(Y): 입력된 고유 연도의 '개수'만큼만 유연하게 대지 높이 지정 (완전 순서제어)
+        // 2. 세로축(Y): 입력된 고유 연도의 개수만큼 대지 높이 지정
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
         const gridHeight = uniqueYears.length * ROW_HEIGHT + 100; 
         document.getElementById('timeline-grid').style.height = `${gridHeight}px`;
 
-        // [A] 연도축 동적 순서 배치 (행 인덱스 매핑)
+        // [A] 연도축 렌더링 (이벤트 카드와 1:1 패딩 및 탑 좌표 동기화)
         uniqueYears.forEach((y, yearIdx) => {
             const label = document.createElement('div');
             label.className = 'year-label';
@@ -319,16 +320,18 @@ window.app = {
             label.style.width = '100%';
             label.style.textAlign = 'right';
             label.style.paddingRight = '12px';
-            label.style.fontSize = '12px';
             label.style.fontWeight = 'bold';
             
-            // 🎯 비례식이 아닌 순서 순위(yearIdx)에 고정 행 높이를 곱해 일정한 간격 유지
-            label.style.top = `${yearIdx * ROW_HEIGHT + 40}px`; 
+            // 🎯 [정밀 매칭] 이벤트 카드의 top(+20px), padding-top(10px), font-size(13px) 구조와 완벽히 일치시킵니다.
+            label.style.top = `${yearIdx * ROW_HEIGHT + 20}px`; 
+            label.style.paddingTop = '10px'; 
+            label.style.fontSize = '13px';
+            label.style.transform = 'none'; // 기존 CSS의 중앙 정렬(translateY) 설정을 무력화하여 상단 수평선을 맞춤
             
             const isSelectedYear = events.find(e => e.eventID === selectedID)?.startYear === y;
             if (isSelectedYear) {
                 label.style.color = '#3498db';
-                label.style.fontSize = '14px';
+                label.style.fontSize = '14px'; // 선택 시 살짝 확대
             } else {
                 label.style.color = '#7f8c8d';
             }
@@ -346,15 +349,14 @@ window.app = {
             const node = document.createElement('div');
             node.className = `event-node ${selectedID === ev.eventID ? 'active' : ''}`;
             node.style.left = `${regionIdx * 200 + 25}px`;
-            // 🎯 노드의 상단 위치 역시 순서 인덱스 기반으로 촘촘하게 수직 매핑
-            node.style.top = `${yearIdx * ROW_HEIGHT + 20}px`;
+            node.style.top = `${yearIdx * ROW_HEIGHT + 20}px`; // 🎯 연도 label의 top과 동일하게 매핑
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
             container.appendChild(node);
 
-            // 가이드라인 절대 계산 함수 정형화
+            // 🎯 [정밀 매칭] 조준선(hLine)이 글자의 정확한 정중앙(수평 텍스트 중심선)을 관통하도록 좌표 보정 (+37px)
             const getX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
-            const getY = (e) => uniqueYears.indexOf(e.startYear) * ROW_HEIGHT + 40;
+            const getY = (e) => uniqueYears.indexOf(e.startYear) * ROW_HEIGHT + 37;
             
             const isSelected = selectedID === ev.eventID;
             const strokeColor = isSelected ? "#3498db" : "#e0e0e0";
@@ -382,7 +384,7 @@ window.app = {
             vLine.setAttribute("opacity", opacity);
             svg.appendChild(vLine);
 
-            // 인과관계 트랙 인라인 링크 투사
+            // 인과관계 트랙 링크 투사
             if (isSelected) {
                 if (ev.upLink && ev.upLink !== ev.eventID) {
                     const prev = events.find(e => e.eventID === ev.upLink);

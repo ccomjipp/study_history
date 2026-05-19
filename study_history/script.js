@@ -421,6 +421,15 @@ window.app = {
             node.style.top = `${yearTops[ev.startYear] + (stackIdx * CARD_GAP)}px`;
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
+
+            // 🎯 [여기서부터 신규 이식] 기록된 메모가 존재한다면 노란색 툴팁 엘리먼트를 동적 주입합니다
+            if (ev.memo && ev.memo.trim() !== "") {
+                const tooltip = document.createElement('div');
+                tooltip.className = 'memo-tooltip';
+                tooltip.innerText = ev.memo;
+                node.appendChild(tooltip); // 사건 카드 내부의 자식 요소로 장착
+            }
+            
             container.appendChild(node);
 
             const getX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;

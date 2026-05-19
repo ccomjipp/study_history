@@ -169,7 +169,7 @@ window.app = {
         }
     },
 
-    // 7. Gemini AI 검색 연동
+    // 7. [인프라 우회 버전] 브라우저 직접 호출 방식의 Gemini AI 검색
     fetchAI: async () => {
         const nameEl = document.getElementById('in-eventName');
         if (!nameEl.value.trim()) {
@@ -180,18 +180,62 @@ window.app = {
         }
         nameEl.style.border = "";
 
-        alert("Gemini AI가 역사의 바다를 탐색 중입니다. 잠시만 기다려주세요...");
+        // 🎯 [보안 조치] 브라우저 창고에서 API 키를 먼저 읽어옵니다.
+        let localKey = localStorage.getItem("my_gemini_key");
+        
+        // 키가 저장되어 있지 않다면 사용자에게 직접 입력을 받습니다.
+        if (!localKey) {
+            localKey = prompt("🔒 구글 AI Studio에서 발급받은 API 키를 입력해주세요.\n(입력하신 키는 선배님의 브라우저 내부에만 안전하게 저장되며, 깃허브에 절대 노출되지 않습니다.)");
+            if (!localKey) return;
+            localStorage.setItem("my_gemini_key", localKey.trim());
+        }
+
+        alert("Gemini AI가 선배님의 홈 IP를 타고 역사의 바다를 탐색 중입니다...");
 
         try {
-            const res = await fetch('/.netlify/functions/gemini-proxy', {
+            // 🎯 Netlify 프록시를 거치지 않고, 구글 공식 API 엔드포인트를 직접 타격합니다!
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${localKey}`;
+            
+            const promptText = `
+              역사 사건 "${nameEl.value.trim()}"에 대해 조사해서 아래의 JSON 형식으로만 답변해줘. 
+              설명이나 대화문은 절대 포함하지 말고 오직 JSON 데이터만 반환해야 해.
+              
+              {
+                "startYear": 사건의 시작 연도 (숫자만 입력, 기원전이면 마이너스 부호를 붙여줘. 예: 고조선 건국은 -2333, 문종 즉위는 1450),
+                "eventPlace": "사건이 일어난 구체적인 장소나 도시 이름 (예: 한양, 교토, 파리)",
+                "placeGroup": "한국", "일본", "중국", "동남아시아", "서남아시아", "중앙아시아", "중동", "유럽", "아프리카", "북미", "남미", "기타" 중 정확히 하나만 선택해서 입력,
+                "memo": "사건의 원인, 과정, 역사적 의미를 2~3문장으로 간결하게 요약한 문장"
+              }
+            `;
+
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ eventName: nameEl.value.trim() })
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
             });
 
-            if (!res.ok) throw new Error("AI 프록시 서버 에러");
-            const data = await res.json();
+            if (!res.ok) {
+                // 혹시라도 키가 잘못되었을 경우 창고를 비워 재입력을 유도합니다.
+                if (res.status === 400 || res.status === 401) {
+                    localStorage.removeItem("my_gemini_key");
+                    throw new Error("API 키가 올바르지 않거나 만료되었습니다. 다시 시도해 주세요.");
+                }
+                throw new Error(`구글 서버 에러 (Status: ${res.status})`);
+            }
 
+            const rawData = await res.json();
+            let text = rawData.candidates[0].content.parts[0].text.trim();
+
+            // 마크다운 찌꺼기 정제 필터링
+            if (text.startsWith("```")) {
+                text = text.replace(/```json|```/g, "").trim();
+            }
+
+            const data = JSON.parse(text);
+
+            // 입력창에 값 투사
             document.getElementById('in-startYear').value = data.startYear || "";
             document.getElementById('in-eventPlace').value = data.eventPlace || "";
             document.getElementById('in-placeGroup').value = data.placeGroup || "";
@@ -200,7 +244,7 @@ window.app = {
             alert("AI 분석 완료! 내용을 확인하신 후 [추가 / 수정] 버튼을 누르면 정식 등록됩니다.");
         } catch (err) {
             console.error("AI 검색 실패:", err);
-            alert("AI 검색 중 오류가 발생했습니다.");
+            alert(`AI 검색 중 오류가 발생했습니다:\n${err.message}`);
         }
     },
 

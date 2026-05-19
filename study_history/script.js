@@ -1,9 +1,9 @@
 // ==========================================
-// [이음이 역사 공부] 프론트엔드 핵심 로직 (연도 순서 정렬 압축 버전)
+// [이음이 역사 공부] 프론트엔드 핵심 로직 (세션 유지 및 저장 검증 강화)
 // ==========================================
 
 const ALL_REGIONS = ["한국", "일본", "중국", "동남아시아", "서남아시아", "중앙아시아", "중동", "유럽", "아프리카", "북미", "남미", "기타"];
-const ROW_HEIGHT = 80;  // 🎯 [신규 명세] 연도 비례가 아닌, '이벤트 한 행(Row)'당 고정 세로폭 (80px)
+const ROW_HEIGHT = 80;  // 행당 고정 세로폭
 
 let events = [];        // 역사 사건 데이터 배열
 let selectedID = null;  // 선택된 이벤트 ID
@@ -31,6 +31,10 @@ window.app = {
 
             if (res.ok && result.success) {
                 currentUserID = userID;
+                
+                // 🎯 [신규] 브라우저 세션 창고에 로그인 아이디를 임시 저장 (F5 차단용)
+                sessionStorage.setItem("yieumi_user", userID); 
+                
                 document.getElementById('login-overlay').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
                 
@@ -71,18 +75,24 @@ window.app = {
         app.render();
     },
 
-    // 4. 백엔드 데이터 저장하기
+    // 4. 백엔드 데이터 저장하기 (엄격한 트랜잭션 성공 검증 추가 🎯)
     saveData: async () => {
         try {
-            await fetch(`/.netlify/functions/data?userID=${currentUserID}`, {
+            const res = await fetch(`/.netlify/functions/data?userID=${currentUserID}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(events)
             });
+
+            // 🎯 [버그 추적 장치] 서버가 저장에 실패(500 에러 등)하면 즉시 예외를 발생시킵니다.
+            if (!res.ok) {
+                throw new Error(`서버 응답 에러 (Status: ${res.status})`);
+            }
             app.render();
         } catch (err) {
             console.error("데이터 저장 실패:", err);
-            alert("서버에 데이터를 저장하지 못했습니다.");
+            // 자네에게 서버가 진짜 거부했음을 즉시 얼럿으로 경고합니다.
+            alert("⚠️ 경고: 데이터가 Netlify 서버에 저장되지 못했습니다!\nNetlify 대시보드의 Blobs 기능이나 환경변수 설정을 확인하세요.");
         }
     },
 
@@ -238,7 +248,7 @@ window.app = {
         });
     },
 
-    // 9. 이벤트 선택 및 화면 이동 (순서 인덱스 기반 스크롤 계산)
+    // 9. 이벤트 선택 및 화면 이동
     selectEvent: (id) => {
         selectedID = id;
         const ev = events.find(e => e.eventID === id);
@@ -255,7 +265,6 @@ window.app = {
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
         const regionIdx = activeRegions.indexOf(ev.placeGroup);
         
-        // 🎯 [순서 기반 Y축 이동] 고유 연도 배열 내에서의 순서(Index)를 기반으로 스크롤 위치 보정
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
         const yearIdx = uniqueYears.indexOf(ev.startYear);
         
@@ -280,8 +289,7 @@ window.app = {
         });
     },
 
-    // 11. 화면 렌더링 및 순서 기반 압축 인터페이스 고도화
-    // 11. 화면 렌더링 및 순서 기반 압축 인터페이스 고도화 (정밀 픽셀 정렬 버전)
+    // 11. 화면 렌더링
     render: () => {
         const container = document.getElementById('event-container');
         const svg = document.getElementById('link-layer');
@@ -299,7 +307,6 @@ window.app = {
             return;
         }
 
-        // 1. 가로축(X): 데이터가 존재하는 권역만 추출 및 렌더링
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
         activeRegions.forEach(r => {
             header.innerHTML += `<div class="region-label" style="min-width:200px; text-align:center; line-height:40px; border-right:1px solid #555;">${r}</div>`;
@@ -307,12 +314,10 @@ window.app = {
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
 
-        // 2. 세로축(Y): 입력된 고유 연도의 개수만큼 대지 높이 지정
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
         const gridHeight = uniqueYears.length * ROW_HEIGHT + 100; 
         document.getElementById('timeline-grid').style.height = `${gridHeight}px`;
 
-        // [A] 연도축 렌더링 (이벤트 카드와 1:1 패딩 및 탑 좌표 동기화)
         uniqueYears.forEach((y, yearIdx) => {
             const label = document.createElement('div');
             label.className = 'year-label';
@@ -322,16 +327,15 @@ window.app = {
             label.style.paddingRight = '12px';
             label.style.fontWeight = 'bold';
             
-            // 🎯 [정밀 매칭] 이벤트 카드의 top(+20px), padding-top(10px), font-size(13px) 구조와 완벽히 일치시킵니다.
             label.style.top = `${yearIdx * ROW_HEIGHT + 20}px`; 
             label.style.paddingTop = '10px'; 
             label.style.fontSize = '13px';
-            label.style.transform = 'none'; // 기존 CSS의 중앙 정렬(translateY) 설정을 무력화하여 상단 수평선을 맞춤
+            label.style.transform = 'none'; 
             
             const isSelectedYear = events.find(e => e.eventID === selectedID)?.startYear === y;
             if (isSelectedYear) {
                 label.style.color = '#3498db';
-                label.style.fontSize = '14px'; // 선택 시 살짝 확대
+                label.style.fontSize = '14px';
             } else {
                 label.style.color = '#7f8c8d';
             }
@@ -340,7 +344,6 @@ window.app = {
             ruler.appendChild(label);
         });
 
-        // [B] 이벤트 노드 및 조준선 맵 구성
         events.forEach(ev => {
             const regionIdx = activeRegions.indexOf(ev.placeGroup);
             const yearIdx = uniqueYears.indexOf(ev.startYear);
@@ -349,12 +352,11 @@ window.app = {
             const node = document.createElement('div');
             node.className = `event-node ${selectedID === ev.eventID ? 'active' : ''}`;
             node.style.left = `${regionIdx * 200 + 25}px`;
-            node.style.top = `${yearIdx * ROW_HEIGHT + 20}px`; // 🎯 연도 label의 top과 동일하게 매핑
+            node.style.top = `${yearIdx * ROW_HEIGHT + 20}px`; 
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
             container.appendChild(node);
 
-            // 🎯 [정밀 매칭] 조준선(hLine)이 글자의 정확한 정중앙(수평 텍스트 중심선)을 관통하도록 좌표 보정 (+37px)
             const getX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
             const getY = (e) => uniqueYears.indexOf(e.startYear) * ROW_HEIGHT + 37;
             
@@ -364,7 +366,6 @@ window.app = {
             const dashArray = isSelected ? "0" : "4,4";
             const opacity = isSelected ? "1" : "0.6";
 
-            // 가로축 조준선
             const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             hLine.setAttribute("x1", "0"); hLine.setAttribute("y1", getY(ev));
             hLine.setAttribute("x2", gridWidth.toString()); hLine.setAttribute("y2", getY(ev));
@@ -374,7 +375,6 @@ window.app = {
             hLine.setAttribute("opacity", opacity);
             svg.appendChild(hLine);
 
-            // 세로축 조준선
             const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             vLine.setAttribute("x1", getX(ev)); vLine.setAttribute("y1", "0");
             vLine.setAttribute("x2", getX(ev)); vLine.setAttribute("y2", getY(ev));
@@ -384,7 +384,6 @@ window.app = {
             vLine.setAttribute("opacity", opacity);
             svg.appendChild(vLine);
 
-            // 인과관계 트랙 링크 투사
             if (isSelected) {
                 if (ev.upLink && ev.upLink !== ev.eventID) {
                     const prev = events.find(e => e.eventID === ev.upLink);
@@ -424,7 +423,7 @@ window.app = {
 };
 
 // ==========================================
-// 시스템 이벤트 바인딩 가동
+// 🎯 [신규] 자동 로그인 체크 및 최초 바인딩
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-login-submit')?.addEventListener('click', app.login);
@@ -432,6 +431,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-search')?.addEventListener('click', app.search);
     document.getElementById('btn-ai')?.addEventListener('click', app.fetchAI);
     document.getElementById('btn-delete')?.addEventListener('click', app.deleteEvent);
+
+    // 🎯 [자동 로그인] 새로고침(F5) 시 세션 창고를 확인하여 즉시 메인 화면 복귀
+    const savedUser = sessionStorage.getItem("yieumi_user");
+    if (savedUser) {
+        currentUserID = savedUser;
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('app-container').style.display = 'flex';
+        app.init();
+        app.loadData(); // 서버에서 실시간 데이터 강제 싱크
+    }
 
     document.addEventListener('keydown', (e) => {
         if (!selectedID) return;

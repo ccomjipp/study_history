@@ -36,7 +36,7 @@ exports.handler = async (event) => {
 
     // 3. Gemini 인프라 초기화 및 최신 표준 모델 지정
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // 🎯 구형 'gemini-pro' 대신 1.5-flash 지정
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // 🎯 구형 'gemini-pro' 대신 1.5-flash 지정
 
     // 4. 구조화된 프롬프트 투사 (역사 데이터 포맷 고정 명령어)
     const prompt = `

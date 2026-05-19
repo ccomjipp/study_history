@@ -1,10 +1,9 @@
 // ==========================================
-// [이음이 역사 공부] 프론트엔드 핵심 로직 (동적 시공간 축 고도화)
+// [이음이 역사 공부] 프론트엔드 핵심 로직 (연도 순서 정렬 압축 버전)
 // ==========================================
 
 const ALL_REGIONS = ["한국", "일본", "중국", "동남아시아", "서남아시아", "중앙아시아", "중동", "유럽", "아프리카", "북미", "남미", "기타"];
-const SCALE_Y = 10;     // 1년당 세로 폭 (10px)
-const OFFSET_Y = 3000;  // 기원전(BC) 3000년을 좌표계의 0점으로 설정
+const ROW_HEIGHT = 80;  // 🎯 [신규 명세] 연도 비례가 아닌, '이벤트 한 행(Row)'당 고정 세로폭 (80px)
 
 let events = [];        // 역사 사건 데이터 배열
 let selectedID = null;  // 선택된 이벤트 ID
@@ -46,7 +45,7 @@ window.app = {
         }
     },
 
-    // 2. 초기 UI 컴포넌트 바인딩 (입력 선택지는 전체 권역을 유지하여 신규 입력 보장)
+    // 2. 초기 UI 바인딩
     init: () => {
         const select = document.getElementById('in-placeGroup');
         select.innerHTML = '<option value="">권역 선택 (필수)</option>';
@@ -55,13 +54,12 @@ window.app = {
         });
     },
 
-    // 3. 백엔드 데이터 불러오기 (예외 처리 강화로 배열 붕괴 차단)
+    // 3. 백엔드 데이터 불러오기
     loadData: async () => {
         try {
             const res = await fetch(`/.netlify/functions/data?userID=${currentUserID}`);
             if (res.ok) {
                 const data = await res.json();
-                // 🎯 [버그 수정] 반환 값이 배열인지 엄격히 검증하여 함수 크래시 원천 차단
                 events = Array.isArray(data) ? data : []; 
             } else {
                 events = [];
@@ -125,7 +123,6 @@ window.app = {
             leftLink: null
         };
 
-        // 데이터가 깨져 배열이 아닐 경우를 대비한 방어 코드
         if (!Array.isArray(events)) events = [];
 
         const existing = events.find(e => e.eventName === eventName);
@@ -241,7 +238,7 @@ window.app = {
         });
     },
 
-    // 9. 이벤트 선택 및 화면 이동 (동적 가상의 축 좌표 대응 계산)
+    // 9. 이벤트 선택 및 화면 이동 (순서 인덱스 기반 스크롤 계산)
     selectEvent: (id) => {
         selectedID = id;
         const ev = events.find(e => e.eventID === id);
@@ -255,12 +252,15 @@ window.app = {
 
         app.render();
         
-        // 🎯 [동적 좌표 보정] 활성화된 권역 배열 기준으로 가로 스크롤 위치 계산
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
         const regionIdx = activeRegions.indexOf(ev.placeGroup);
         
+        // 🎯 [순서 기반 Y축 이동] 고유 연도 배열 내에서의 순서(Index)를 기반으로 스크롤 위치 보정
+        const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
+        const yearIdx = uniqueYears.indexOf(ev.startYear);
+        
         const x = regionIdx * 200 + 100;
-        const y = (ev.startYear + OFFSET_Y) * SCALE_Y;
+        const y = yearIdx * ROW_HEIGHT + 40; 
         document.getElementById('content-body').scrollTo({ left: x - 400, top: y - 300, behavior: 'smooth' });
     },
 
@@ -280,7 +280,7 @@ window.app = {
         });
     },
 
-    // 11. 화면 렌더링 및 동적 시공간 매트릭스 압축 정렬
+    // 11. 화면 렌더링 및 순서 기반 압축 인터페이스 고도화
     render: () => {
         const container = document.getElementById('event-container');
         const svg = document.getElementById('link-layer');
@@ -290,28 +290,29 @@ window.app = {
         container.innerHTML = '';
         svg.innerHTML = '';
         ruler.innerHTML = '';
-        header.innerHTML = ''; // 🎯 상단 권역 축 헤더 초기화
+        header.innerHTML = ''; 
 
         if (!Array.isArray(events) || events.length === 0) {
             document.getElementById('timeline-grid').style.width = "100%";
+            document.getElementById('timeline-grid').style.height = "100%";
             return;
         }
 
-        // 🎯 [핵심 기법] 데이터가 존재하는 권역(Active Regions)만 순서대로 추출
+        // 🎯 1. 가로축(X): 데이터가 존재하는 권역만 추출 및 렌더링
         const activeRegions = ALL_REGIONS.filter(r => events.some(e => e.placeGroup === r));
-
-        // [A] 권역축 동적 생성: 이벤트가 있는 권역만 상단에 렌더링
         activeRegions.forEach(r => {
             header.innerHTML += `<div class="region-label" style="min-width:200px; text-align:center; line-height:40px; border-right:1px solid #555;">${r}</div>`;
         });
-
-        // 🎯 활성화된 권역 수에 맞춰 대지(Grid)의 가로폭을 축소/조절
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
 
-        // [B] 연도축 동적 생성: 입력된 이벤트 연도만 표시 (기존 유지)
+        // 🎯 2. 세로축(Y): 입력된 고유 연도의 '개수'만큼만 유연하게 대지 높이 지정 (완전 순서제어)
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
-        uniqueYears.forEach(y => {
+        const gridHeight = uniqueYears.length * ROW_HEIGHT + 100; 
+        document.getElementById('timeline-grid').style.height = `${gridHeight}px`;
+
+        // [A] 연도축 동적 순서 배치 (행 인덱스 매핑)
+        uniqueYears.forEach((y, yearIdx) => {
             const label = document.createElement('div');
             label.className = 'year-label';
             label.style.position = 'absolute';
@@ -320,7 +321,9 @@ window.app = {
             label.style.paddingRight = '12px';
             label.style.fontSize = '12px';
             label.style.fontWeight = 'bold';
-            label.style.top = `${(y + OFFSET_Y) * SCALE_Y + 20}px`; 
+            
+            // 🎯 비례식이 아닌 순서 순위(yearIdx)에 고정 행 높이를 곱해 일정한 간격 유지
+            label.style.top = `${yearIdx * ROW_HEIGHT + 40}px`; 
             
             const isSelectedYear = events.find(e => e.eventID === selectedID)?.startYear === y;
             if (isSelectedYear) {
@@ -334,23 +337,24 @@ window.app = {
             ruler.appendChild(label);
         });
 
-        // [C] 이벤트 노드 배치 및 가로/세로 압축 가이드라인 투사
+        // [B] 이벤트 노드 및 조준선 맵 구성
         events.forEach(ev => {
             const regionIdx = activeRegions.indexOf(ev.placeGroup);
-            if (regionIdx === -1) return; // 활성화되지 않은 권역 예외 처리
+            const yearIdx = uniqueYears.indexOf(ev.startYear);
+            if (regionIdx === -1 || yearIdx === -1) return; 
 
-            // 노드 배치 좌표를 activeRegions 인덱스 기반으로 전면 수정
             const node = document.createElement('div');
             node.className = `event-node ${selectedID === ev.eventID ? 'active' : ''}`;
             node.style.left = `${regionIdx * 200 + 25}px`;
-            node.style.top = `${(ev.startYear + OFFSET_Y) * SCALE_Y}px`;
+            // 🎯 노드의 상단 위치 역시 순서 인덱스 기반으로 촘촘하게 수직 매핑
+            node.style.top = `${yearIdx * ROW_HEIGHT + 20}px`;
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
             container.appendChild(node);
 
-            // 가이드라인 좌표 계산식 구조 정의
+            // 가이드라인 절대 계산 함수 정형화
             const getX = (e) => activeRegions.indexOf(e.placeGroup) * 200 + 100;
-            const getY = (e) => (e.startYear + OFFSET_Y) * SCALE_Y + 20;
+            const getY = (e) => uniqueYears.indexOf(e.startYear) * ROW_HEIGHT + 40;
             
             const isSelected = selectedID === ev.eventID;
             const strokeColor = isSelected ? "#3498db" : "#e0e0e0";
@@ -358,7 +362,7 @@ window.app = {
             const dashArray = isSelected ? "0" : "4,4";
             const opacity = isSelected ? "1" : "0.6";
 
-            // 가로축 투사 (폭을 고정이 아닌 동적 gridWidth 값에 완벽 매핑)
+            // 가로축 조준선
             const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             hLine.setAttribute("x1", "0"); hLine.setAttribute("y1", getY(ev));
             hLine.setAttribute("x2", gridWidth.toString()); hLine.setAttribute("y2", getY(ev));
@@ -368,7 +372,7 @@ window.app = {
             hLine.setAttribute("opacity", opacity);
             svg.appendChild(hLine);
 
-            // 세로축 투사
+            // 세로축 조준선
             const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             vLine.setAttribute("x1", getX(ev)); vLine.setAttribute("y1", "0");
             vLine.setAttribute("x2", getX(ev)); vLine.setAttribute("y2", getY(ev));
@@ -378,7 +382,7 @@ window.app = {
             vLine.setAttribute("opacity", opacity);
             svg.appendChild(vLine);
 
-            // 인과관계 연결선 덧씌우기
+            // 인과관계 트랙 인라인 링크 투사
             if (isSelected) {
                 if (ev.upLink && ev.upLink !== ev.eventID) {
                     const prev = events.find(e => e.eventID === ev.upLink);
@@ -396,7 +400,6 @@ window.app = {
         });
     },
     
-    // 유틸리티: 관계성 라인 기본 렌더러
     createSVGLine: (x1, y1, x2, y2, color, width, dash) => {
         const svg = document.getElementById('link-layer');
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -419,7 +422,7 @@ window.app = {
 };
 
 // ==========================================
-// 시스템 이벤트 핸들러 초기 가동
+// 시스템 이벤트 바인딩 가동
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-login-submit')?.addEventListener('click', app.login);
@@ -428,7 +431,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-ai')?.addEventListener('click', app.fetchAI);
     document.getElementById('btn-delete')?.addEventListener('click', app.deleteEvent);
 
-    // 방향키 커서 제어 스코프 바인딩
     document.addEventListener('keydown', (e) => {
         if (!selectedID) return;
         const current = events.find(ev => ev.eventID === selectedID);

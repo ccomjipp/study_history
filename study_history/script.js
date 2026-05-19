@@ -360,6 +360,7 @@ window.app = {
         });
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
+        document.getElementById('region-header').style.width = `${gridWidth}px`;
 
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
         

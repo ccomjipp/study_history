@@ -1,5 +1,5 @@
 // ==========================================
-// [이음이 역사 공부] 프론트엔드 핵심 로직 파일
+// [이음이 역사 공부] 프론트엔드 핵심 로직 (동적 가이드라인 버전)
 // ==========================================
 
 const regions = ["한국", "일본", "중국", "동남아시아", "서남아시아", "중앙아시아", "중동", "유럽", "아프리카", "북미", "남미", "기타"];
@@ -11,7 +11,7 @@ let selectedID = null;  // 현재 사용자가 마우스나 커서로 선택한 
 let currentUserID = ""; // 로그인 성공 시 저장할 사용자 ID
 
 window.app = {
-    // 1. 로그인 검증 함수 (Netlify 서버리스 함수 auth.js 호출)
+    // 1. 로그인 검증 함수
     login: async () => {
         const userID = document.getElementById('login-id').value.trim();
         const password = document.getElementById('login-pw').value.trim();
@@ -22,7 +22,6 @@ window.app = {
         }
 
         try {
-            //alert("입력 OK");
             const res = await fetch('/.netlify/functions/auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -33,11 +32,9 @@ window.app = {
 
             if (res.ok && result.success) {
                 currentUserID = userID;
-                // 로그인 창 숨기고 메인 화면 표시
                 document.getElementById('login-overlay').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
                 
-                // 시스템 초기화 및 데이터 로드
                 app.init();
                 await app.loadData();
             } else {
@@ -45,13 +42,12 @@ window.app = {
             }
         } catch (err) {
             console.error("로그인 통신 에러:", err);
-            alert("서버와 통신 중 오류가 발생했습니다. Netlify Functions 상태를 확인하세요.");
+            alert("서버와 통신 중 오류가 발생했습니다.");
         }
     },
 
-    // 2. 눈금자 및 UI 초기 생성 함수
+    // 2. 초기 UI 프레임 생성 (정적 연도 루프 제거됨 ❌)
     init: () => {
-        // 상단 권역 헤더 동적 생성
         const header = document.getElementById('region-header');
         const select = document.getElementById('in-placeGroup');
         header.innerHTML = '';
@@ -61,28 +57,9 @@ window.app = {
             header.innerHTML += `<div class="region-label" style="min-width:200px; text-align:center; line-height:40px; border-right:1px solid #555;">${r}</div>`;
             select.innerHTML += `<option value="${r}">${r}</option>`;
         });
-
-        // 좌측 연도 눈금자 동적 생성 (BC 3000년 ~ AD 2026년까지 100년 단위)
-        const ruler = document.getElementById('year-ruler');
-        ruler.innerHTML = '';
-        ruler.style.position = 'relative';
-        
-        for (let y = -3000; y <= 2026; y += 100) {
-            const label = document.createElement('div');
-            label.className = 'year-label';
-            label.style.position = 'absolute';
-            label.style.width = '100%';
-            label.style.textAlignment = 'right';
-            label.style.paddingRight = '10px';
-            label.style.fontSize = '11px';
-            label.style.color = '#777';
-            label.style.top = `${(y + OFFSET_Y) * SCALE_Y}px`;
-            label.innerText = y < 0 ? `BC ${Math.abs(y)}` : `AD ${y}`;
-            ruler.appendChild(label);
-        }
     },
 
-    // 3. 백엔드 데이터 불러오기 (data.js 호출)
+    // 3. 백엔드 데이터 불러오기
     loadData: async () => {
         try {
             const res = await fetch(`/.netlify/functions/data?userID=${currentUserID}`);
@@ -95,7 +72,7 @@ window.app = {
         }
     },
 
-    // 4. 백엔드 데이터 저장하기 (data.js 호출)
+    // 4. 백엔드 데이터 저장하기
     saveData: async () => {
         try {
             await fetch(`/.netlify/functions/data?userID=${currentUserID}`, {
@@ -118,7 +95,6 @@ window.app = {
         const placeGroupEl = document.getElementById('in-placeGroup');
         const memoEl = document.getElementById('in-memo');
 
-        // 필수 항목 유효성 검사 (빈 칸이면 테두리 빨갛게 변경 후 포커스 이동)
         const inputs = [startYearEl, eventNameEl, eventPlaceEl, placeGroupEl];
         for (let input of inputs) {
             if (!input.value.trim()) {
@@ -137,7 +113,7 @@ window.app = {
         const memo = memoEl.value.trim();
 
         const newEvent = {
-            eventID: Date.now(), // 고유 ID 생성
+            eventID: Date.now(),
             userID: currentUserID,
             startYear,
             eventName,
@@ -148,14 +124,12 @@ window.app = {
             leftLink: null
         };
 
-        // 사건명 중복 검사
         const existing = events.find(e => e.eventName === eventName);
         if (existing) {
-            app.selectEvent(existing.eventID); // 기존 사건이 있는 곳으로 화면 이동 및 선택
+            app.selectEvent(existing.eventID);
             
-            // 기존 데이터와 완전히 같은지 검사
             const isSame = existing.startYear === startYear && existing.eventPlace === eventPlace && existing.placeGroup === placeGroup && existing.memo === memo;
-            if (isSame) return; // 같으면 아무 일도 안 함
+            if (isSame) return;
 
             if (confirm("기존 데이터와 다릅니다. 수정하시겠습니까?")) {
                 Object.assign(existing, { startYear, eventPlace, placeGroup, memo });
@@ -166,7 +140,6 @@ window.app = {
             return;
         }
 
-        // 신규 추가일 경우
         events.push(newEvent);
         app.updateAllLinks();
         app.saveData();
@@ -191,7 +164,7 @@ window.app = {
         }
     },
 
-    // 7. Gemini AI 검색 연동 로직 (gemini-proxy.js 호출)
+    // 7. Gemini AI 검색 연동
     fetchAI: async () => {
         const nameEl = document.getElementById('in-eventName');
         if (!nameEl.value.trim()) {
@@ -214,7 +187,6 @@ window.app = {
             if (!res.ok) throw new Error("AI 프록시 서버 에러");
             const data = await res.json();
 
-            // AI가 가져온 정보 입력창에 세팅 (이용자가 [추가] 버튼을 누를 수 있도록 유도)
             document.getElementById('in-startYear').value = data.startYear || "";
             document.getElementById('in-eventPlace').value = data.eventPlace || "";
             document.getElementById('in-placeGroup').value = data.placeGroup || "";
@@ -223,11 +195,11 @@ window.app = {
             alert("AI 분석 완료! 내용을 확인하신 후 [추가 / 수정] 버튼을 누르면 정식 등록됩니다.");
         } catch (err) {
             console.error("AI 검색 실패:", err);
-            alert("AI 검색 중 오류가 발생했습니다. 서버 설정을 확인하세요.");
+            alert("AI 검색 중 오류가 발생했습니다.");
         }
     },
 
-    // 8. 검색 및 이름순 정렬 함수
+    // 8. 검색 및 이름순 정렬
     search: () => {
         const query = document.getElementById('in-eventName').value.toLowerCase().trim();
         if (!query) {
@@ -237,7 +209,7 @@ window.app = {
 
         const results = events
             .filter(e => e.eventName.toLowerCase().includes(query))
-            .sort((a, b) => a.eventName.localeCompare(b.eventName, 'ko')); // 가나다순 정렬
+            .sort((a, b) => a.eventName.localeCompare(b.eventName, 'ko'));
 
         const resDiv = document.getElementById('search-results');
         resDiv.innerHTML = '';
@@ -259,7 +231,7 @@ window.app = {
             
             item.onclick = () => {
                 app.selectEvent(ev.eventID);
-                resDiv.classList.add('hidden'); // 클릭 시 결과 창 닫기
+                resDiv.classList.add('hidden');
             };
             resDiv.appendChild(item);
         });
@@ -271,7 +243,6 @@ window.app = {
         const ev = events.find(e => e.eventID === id);
         if (!ev) return;
 
-        // 입력 폼에 선택된 데이터 채워주기
         document.getElementById('in-startYear').value = ev.startYear;
         document.getElementById('in-eventName').value = ev.eventName;
         document.getElementById('in-eventPlace').value = ev.eventPlace;
@@ -280,27 +251,19 @@ window.app = {
 
         app.render();
         
-        // 대상 이벤트를 화면 정중앙으로 스크롤 스무스하게 이동
         const x = regions.indexOf(ev.placeGroup) * 200 + 100;
         const y = (ev.startYear + OFFSET_Y) * SCALE_Y;
         document.getElementById('content-body').scrollTo({ left: x - 400, top: y - 300, behavior: 'smooth' });
-
-        // 메모 팝업 띄우기
-        if (ev.memo) {
-            setTimeout(() => { alert(`[메모 팝업]\n사건명: ${ev.eventName}\n\n내용: ${ev.memo}`); }, 300);
-        }
     },
 
-    // 10. 링크 관계성 업데이트 알고리즘
+    // 10. 관계성 링크 업데이트
     updateAllLinks: () => {
         events.forEach(ev => {
-            // UpLink: 동일 장소에서 바로 이전 시대 사건 찾기
             const samePlace = events
                 .filter(e => e.eventPlace === ev.eventPlace && e.startYear < ev.startYear)
                 .sort((a, b) => b.startYear - a.startYear);
             ev.upLink = samePlace.length > 0 ? samePlace[0].eventID : ev.eventID;
 
-            // LeftLink: 동일 연도에서 본인보다 바로 한 칸 왼쪽 권역에 있는 사건 찾기
             const myRegionIdx = regions.indexOf(ev.placeGroup);
             const sameYear = events
                 .filter(e => e.startYear === ev.startYear && regions.indexOf(e.placeGroup) < myRegionIdx)
@@ -309,38 +272,104 @@ window.app = {
         });
     },
 
-    // 11. 화면 그리기 (렌더링) 및 SVG 연결선 생성
+    // 11. [핵심 업그레이드] 화면 렌더링 및 동적 가이드 매트릭스 투사
     render: () => {
         const container = document.getElementById('event-container');
         const svg = document.getElementById('link-layer');
+        const ruler = document.getElementById('year-ruler');
+        
         container.innerHTML = '';
         svg.innerHTML = '';
+        ruler.innerHTML = ''; // 🎯 좌측 눈금자를 매번 완전히 비우고 새로 매핑합니다.
 
+        // [A] 동적 눈금자 생성: 입력된 모든 이벤트의 고유 연도 추출 및 렌더링
+        const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
+        
+        uniqueYears.forEach(y => {
+            const label = document.createElement('div');
+            label.className = 'year-label';
+            label.style.position = 'absolute';
+            label.style.width = '100%';
+            label.style.textAlign = 'right';
+            label.style.paddingRight = '12px';
+            label.style.fontSize = '12px';
+            label.style.fontWeight = 'bold';
+            
+            // 좌표 매핑 계산식 (노드의 수직 중앙선과 일치되도록 보정치 +20px 반영)
+            label.style.top = `${(y + OFFSET_Y) * SCALE_Y + 20}px`; 
+            
+            // 현재 선택된 이벤트의 연도와 일치하면 파란색으로 하이라이트 활성화
+            const isSelectedYear = events.find(e => e.eventID === selectedID)?.startYear === y;
+            if (isSelectedYear) {
+                label.style.color = '#3498db';
+                label.style.fontSize = '14px';
+                label.style.textShadow = '0 0 2px rgba(52,152,219,0.3)';
+            } else {
+                label.style.color = '#7f8c8d';
+            }
+            
+            label.innerText = y < 0 ? `BC ${Math.abs(y)}` : `AD ${y}`;
+            ruler.appendChild(label);
+        });
+
+        // [B] 이벤트 노드 배치 및 가로/세로 전용 가이드라인 투사
         events.forEach(ev => {
-            // 노드 생성
+            // 노드 뷰포트 배치
             const node = document.createElement('div');
             node.className = `event-node ${selectedID === ev.eventID ? 'active' : ''}`;
-            node.style.left = `${regions.indexOf(ev.placeGroup) * 200 + 30}px`;
+            node.style.left = `${regions.indexOf(ev.placeGroup) * 200 + 25}px`;
             node.style.top = `${(ev.startYear + OFFSET_Y) * SCALE_Y}px`;
             node.innerText = ev.eventName;
             node.onclick = () => app.selectEvent(ev.eventID);
             container.appendChild(node);
 
-            // 선택된 노드의 선만 그리도록 규정 (선 하이라이트 기능 구현)
-            if (selectedID === ev.eventID) {
+            // 🎯 [핵심] 입력된 모든 이벤트에 대해서 가로축과 세로축 투사선 그리기
+            const getX = (e) => regions.indexOf(e.placeGroup) * 200 + 100;
+            const getY = (e) => (e.startYear + OFFSET_Y) * SCALE_Y + 20;
+            
+            const isSelected = selectedID === ev.eventID;
+            // 선택된 이벤트는 진하고 선명하게, 일반 이벤트는 은은하고 투명한 연회색으로 매핑
+            const strokeColor = isSelected ? "#3498db" : "#e0e0e0";
+            const strokeWidth = isSelected ? "2" : "1";
+            const dashArray = isSelected ? "0" : "4,4"; // 일반 가이드라인은 점선 처리하여 시각 피로도 최소화
+            const opacity = isSelected ? "1" : "0.6";
+
+            // 가로축 (Year Timeline Guide) -> 화면의 왼쪽 끝(0)부터 전체 가로폭(2400px)까지 관통
+            const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            hLine.setAttribute("x1", "0"); hLine.setAttribute("y1", getY(ev));
+            hLine.setAttribute("x2", "2400"); hLine.setAttribute("y2", getY(ev));
+            hLine.setAttribute("stroke", strokeColor);
+            hLine.setAttribute("stroke-width", strokeWidth);
+            hLine.setAttribute("stroke-dasharray", dashArray);
+            hLine.setAttribute("opacity", opacity);
+            svg.appendChild(hLine);
+
+            // 세로축 (Region Spatial Guide) -> 상단 헤더(0)부터 해당 이벤트 노드의 좌표점까지 하강
+            const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            vLine.setAttribute("x1", getX(ev)); vLine.setAttribute("y1", "0");
+            vLine.setAttribute("x2", getX(ev)); vLine.setAttribute("y2", getY(ev));
+            vLine.setAttribute("stroke", strokeColor);
+            vLine.setAttribute("stroke-width", strokeWidth);
+            vLine.setAttribute("stroke-dasharray", dashArray);
+            vLine.setAttribute("opacity", opacity);
+            svg.appendChild(vLine);
+
+            // [C] 선택된 노드의 시간/공간 인과관계 연결선 (블루/레드 라인) 은 가이드라인 위에 더 무겁게 덧씌움
+            if (isSelected) {
                 if (ev.upLink && ev.upLink !== ev.eventID) {
                     const prev = events.find(e => e.eventID === ev.upLink);
-                    if (prev) app.createSVGLine(ev, prev, "blue");
+                    if (prev) app.createSVGLine(ev, prev, "#2980b9", "3", "0"); // 시간 연결선
                 }
                 if (ev.leftLink && ev.leftLink !== ev.eventID) {
                     const left = events.find(e => e.eventID === ev.leftLink);
-                    if (left) app.createSVGLine(ev, left, "red");
+                    if (left) app.createSVGLine(ev, left, "#e74c3c", "3", "5,5"); // 공간 연결선
                 }
             }
         });
     },
     
-    createSVGLine: (e1, e2, color) => {
+    // 유틸리티: 관계성 라인 렌더러
+    createSVGLine: (e1, e2, color, width, dash) => {
         const svg = document.getElementById('link-layer');
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         const getX = (ev) => regions.indexOf(ev.placeGroup) * 200 + 100;
@@ -349,8 +378,8 @@ window.app = {
         line.setAttribute("x1", getX(e1)); line.setAttribute("y1", getY(e1));
         line.setAttribute("x2", getX(e2)); line.setAttribute("y2", getY(e2));
         line.setAttribute("stroke", color);
-        line.setAttribute("stroke-width", "3");
-        if (color === "red") line.setAttribute("stroke-dasharray", "5,5"); // 좌우 공간 연결은 점선 처리
+        line.setAttribute("stroke-width", width);
+        if (dash !== "0") line.setAttribute("stroke-dasharray", dash);
         svg.appendChild(line);
     },
 
@@ -364,17 +393,16 @@ window.app = {
 };
 
 // ==========================================
-// 브라우저 이벤트 리스너 바인딩 (메시지 맵 방식)
+// 이벤트 리스너 마운트
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 버튼 기능 연결
     document.getElementById('btn-login-submit')?.addEventListener('click', app.login);
     document.getElementById('btn-add')?.addEventListener('click', app.addEvent);
     document.getElementById('btn-search')?.addEventListener('click', app.search);
     document.getElementById('btn-ai')?.addEventListener('click', app.fetchAI);
     document.getElementById('btn-delete')?.addEventListener('click', app.deleteEvent);
 
-    // 화살표 커서 키를 이용한 흐름 이동 제어 기능
+    // 방향키 내비게이션 제어
     document.addEventListener('keydown', (e) => {
         if (!selectedID) return;
         const current = events.find(ev => ev.eventID === selectedID);

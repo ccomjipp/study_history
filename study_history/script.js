@@ -308,6 +308,8 @@ window.app = {
         });
     },
 
+    // 📄 script.js 내부의 render 함수 통째로 교체 명세
+
     // 11. 화면 렌더링
     render: () => {
         const container = document.getElementById('event-container');
@@ -332,8 +334,6 @@ window.app = {
         });
         const gridWidth = activeRegions.length * 200;
         document.getElementById('timeline-grid').style.width = `${gridWidth}px`;
-        
-        // 🎯 [구조 개혁] 강제로 전체 가로 길이를 주입하던 명령을 제거하여, 뷰포트 영역 내부 클리핑 작동 유도
 
         const uniqueYears = [...new Set(events.map(e => e.startYear))].sort((a, b) => a - b);
         
@@ -414,7 +414,7 @@ window.app = {
             const dashArray = isSelected ? "0" : "4,4";
             const opacity = isSelected ? "1" : "0.6";
 
-            const hLine = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "line");
+            const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             hLine.setAttribute("x1", "0"); hLine.setAttribute("y1", getY(ev));
             hLine.setAttribute("x2", gridWidth.toString()); hLine.setAttribute("y2", getY(ev));
             hLine.setAttribute("stroke", strokeColor);
@@ -423,7 +423,7 @@ window.app = {
             hLine.setAttribute("opacity", opacity);
             svg.appendChild(hLine);
 
-            const vLine = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "line");
+            const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
             vLine.setAttribute("x1", getX(ev)); vLine.setAttribute("y1", "0");
             vLine.setAttribute("x2", getX(ev)); vLine.setAttribute("y2", getY(ev));
             vLine.setAttribute("stroke", strokeColor);
@@ -455,8 +455,11 @@ window.app = {
             }
         });
         
-        // 🎯 [마지막 연산 버스트] 렌더링 직후 현재 하단 스크롤 위치를 상단 헤더에 즉각 동기화 주입
-        header.scrollLeft = contentBody.scrollLeft;
+        // 🎯 [버그 수정 완료] 함수 스코프 외부에 있던 contentBody를 안전하게 직접 참조해 바인딩합니다.
+        const contentBody = document.getElementById('content-body');
+        if (header && contentBody) {
+            header.scrollLeft = contentBody.scrollLeft;
+        }
     },
     
     createSVGLine: (x1, y1, x2, y2, color, width, dash) => {

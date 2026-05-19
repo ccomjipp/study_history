@@ -148,7 +148,11 @@ body {
 
 .event-node:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15); /* 조금 더 선명하고 입체적인 그림자 배치 */
+    
+    /* 🎯 [핵심 버그 수정] 마우스가 올라간 카드는 '부모 자체'를 최상위 레이어로 격상시킵니다.
+       이렇게 하면 자식인 노란색 툴팁이 그 어떤 다른 카드나 점선보다 최상단에 100% 무조건 노출됩니다. */
+    z-index: 2000 !important;
 }
 
 .event-node.active {

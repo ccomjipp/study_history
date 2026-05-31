@@ -483,6 +483,7 @@ window.app = {
                 item.className = `total-event-item ${selectedID === ev.eventID ? 'active' : ''}`;
                 
                 const yearStr = ev.startYear < 0 ? `BC ${Math.abs(ev.startYear)}` : `AD ${ev.startYear}`;
+                const dateStr = ev.startDate ? ` ${ev.startDate}` : "";
                 
                 // 사건명, 연도, 발생장소를 가독성 높은 격자 배치 서식으로 바인딩
                 item.innerHTML = `

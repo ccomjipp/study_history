@@ -93,6 +93,7 @@ window.app = {
     // 5. 역사 사건 추가 및 수정 로직
     addEvent: () => {
         const startYearEl = document.getElementById('in-startYear');
+        const startDateEl = document.getElementById('in-startDate');
         const eventNameEl = document.getElementById('in-eventName');
         const eventPlaceEl = document.getElementById('in-eventPlace');
         const placeGroupEl = document.getElementById('in-placeGroup');
@@ -110,6 +111,7 @@ window.app = {
         }
 
         const startYear = parseInt(startYearEl.value);
+        const startDate = startDateEl.value.trim();
         const eventName = eventNameEl.value.trim();
         const eventPlace = eventPlaceEl.value.trim();
         const placeGroup = placeGroupEl.value;
@@ -119,6 +121,7 @@ window.app = {
             eventID: Date.now(),
             userID: currentUserID,
             startYear,
+            startDate,
             eventName,
             eventPlace,
             placeGroup,
@@ -133,11 +136,11 @@ window.app = {
         if (existing) {
             app.selectEvent(existing.eventID);
             
-            const isSame = existing.eventPlace === eventPlace && existing.memo === memo;
+            const isSame = existing.eventPlace === eventPlace && existing.startDate === startDate && existing.memo === memo;
             if (isSame) return;
 
             if (confirm("동일 시공간에 같은 이름의 사건이 있습니다. 수정하시겠습니까?")) {
-                Object.assign(existing, { eventPlace, memo });
+                Object.assign(existing, { eventPlace, startDate, memo }); // 🟢 startDate 추가됨
                 app.updateAllLinks();
                 app.saveData();
                 alert("수정되었습니다.");
@@ -265,6 +268,7 @@ window.app = {
         if (!ev) return;
 
         document.getElementById('in-startYear').value = ev.startYear;
+        document.getElementById('in-startDate').value = ev.startDate || "";
         document.getElementById('in-eventName').value = ev.eventName;
         document.getElementById('in-eventPlace').value = ev.eventPlace;
         document.getElementById('in-placeGroup').value = ev.placeGroup;
@@ -484,7 +488,7 @@ window.app = {
                 item.innerHTML = `
                     <div style="font-weight: bold; color: #2c3e50; margin-bottom: 2px; text-align: left;">${ev.eventName}</div>
                     <div style="display: flex; justify-content: space-between; color: #7f8c8d; font-size: 11px;">
-                        <span>📅 ${yearStr}</span>
+                        <span>📅 ${yearStr}${dateStr}</span>
                         <span>📍 ${ev.eventPlace}</span>
                     </div>
                 `;
@@ -517,6 +521,7 @@ window.app = {
 
     clearInputs: () => {
         document.getElementById('in-startYear').value = '';
+        document.getElementById('in-startDate').value = '';
         document.getElementById('in-eventName').value = '';
         document.getElementById('in-eventPlace').value = '';
         document.getElementById('in-placeGroup').value = '';
